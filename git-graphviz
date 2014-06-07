@@ -1,0 +1,338 @@
+#!/usr/bin/tclsh
+
+
+set config {
+	filetemplate "git-graphviz"
+	branchoptions "-a"
+	limit 100
+	viewer eog
+    reflog none
+	format png
+}
+
+set la ""
+set ia ""
+foreach val $argv {
+	if { $la != "" } {
+		set ::options($la) $val
+		set la ""
+		continue
+	}
+
+	if { [string range $val 0 1] == "--" } {
+		set la [string range $val 2 end]
+		set ::options($la) ""
+		continue
+	}
+
+	# If not for-option and not option, then free args.
+	lappend ia $val
+}
+
+
+# Now override defaults
+foreach {option default} $config {
+	if { [info exists ::options($option)] } {
+		set ::$option $::options($option)
+	} else {
+		set ::$option $default
+	}
+	
+	puts stderr "OPTION: --$option [set ::$option]"
+}
+
+proc gethist {} {
+	return [exec git log -n $::limit "--pretty=format:%h %p" --all]
+}
+
+proc getinfo hash {
+	set inf [exec git log -1 $hash "--format=%cn. %s" --]
+
+	# Replace dot with simply EOL
+	set inf [string map {". " \\n} $inf]
+
+	# Replace " * " with same with EOL
+	set inf [string map {{ * } {\n* }} $inf]
+
+	# Replace " with \"
+	set inf [string map {"\"" "\\\""} $inf]
+
+	return $inf
+}
+
+proc gethash ref {
+	return [exec git log -1 $ref --format=%h --]
+}
+
+proc top {} {
+	return [exec git rev-parse --show-toplevel]
+}
+
+puts -nonewline stderr "Generating diagram... "
+
+# Read branch info
+
+set branches ""
+set headbr ""
+set remoteheads {}
+
+# puts stderr "DEBUG:"
+
+set an 0
+foreach b [split [exec git branch {*}$branchoptions] \n] {
+	set fif [string index $b 0]
+	set name [string range $b 2 end]
+
+	if { [llength $name] != 1 } {
+
+		lassign $name headname arrow branchname
+		lappend ::remoteheads $headname remotes/$branchname
+		set name $headname
+		#puts stderr "NEW HEAD: $headname led to $branchname"
+	} else {
+
+		if { $fif == "*" } {
+			set headbr $name
+		}
+
+		if { $name == "(no branch)" } {
+			continue
+		}
+		lappend branches $name
+		#puts stderr "NEW BRANCH: $name"
+	}
+	set ::hbrlocal($name) br$an
+	#puts stderr " --> assigned to temporary name br$an"
+	incr an
+}
+
+#puts stderr "ALL BRANCHES: $branches"
+
+set history [split [gethist] \n]
+
+foreach b $branches {
+	set h [gethash $b]
+
+	set hbr($b) $h
+	if { ![info exists ::info($h)] } {
+		set :info($h) [getinfo $h]
+	}
+}
+
+#puts stderr "BRANCHES MAPPED: [array get ::hbr]"
+
+
+# Record the hierarchy information
+
+foreach h $history {
+	set this [lindex $h 0]
+	set pars [lrange $h 1 end]
+	set ::parents($this) $pars
+
+	if { ![info exists ::info($this)] } {
+			set ::info($this) [getinfo $this]
+	}
+	foreach p $pars {
+		if { ![info exists ::info($p)] } {
+			set ::info($p) [getinfo $p]
+		}
+	}
+}
+
+set ofile [open /tmp/$filetemplate.dot w]
+
+puts $ofile "digraph \{"
+
+puts $ofile "// COMMIT BALLS: setting info for every commit"
+
+foreach {this msg} [array get ::info] {
+	puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=\"#CCFFCC\" style=filled];"
+}
+
+puts $ofile "// BINDINGS: parent-child bindings between commits"
+
+foreach {this pars} [array get ::parents] {
+
+	foreach p $pars {
+		puts $ofile "\tc$this -> c$p ;"
+	}
+	
+}
+
+puts $ofile "// Branch FUB infos and LOCAL BRANCH (br##) names bound to commits"
+
+set found_branches ""
+foreach {branch hbranch} [array get ::hbr] {
+
+	# Skip branches that do not have locally existing target commit
+	if { ![info exists ::info($hbranch)] } {
+		puts $ofile "// SKIPPED: c$hbranch ($branch) -- no info obtained"
+		continue
+	}
+
+	set brname $::hbrlocal($branch)
+	puts $ofile "\t$brname\[label=\"$branch\" shape=box style=filled color=\"\#FFCCBB\"\] ;"
+	puts $ofile "\t$brname -> c$hbranch ;"
+
+	lappend found_branches $branch $hbranch
+}
+
+# Generate reflog fubs if needed
+set reflog_branches ""
+#puts stderr "REFLOG: $::reflog"
+switch -- $::reflog {
+	none {
+		puts $ofile "// REFLOG: not wanted"
+	}
+
+	all {
+		set reflog_branches [dict keys $::found_branches]
+		puts $ofile "// REFLOG: all branches requested: $reflog_branches"
+	}
+
+	default {
+		puts $ofile "// REFLOG: preselected branches: $::reflog"
+		# This lists the names of branches, comma separated, no spaces
+		# Alternatively separated by spaces
+		if { [llength $::reflog] == 1 } {
+			set ::reflog [split $::reflog ,]
+		}
+
+		# Generate branch list
+		# Find every branch in found_branches
+		foreach b $::reflog {
+			if { [dict exists $::found_branches $b] } {
+				lappend reflog_branches $b
+			} else {
+				puts stderr "\nNOTE: reflog for $b rejected - branch not found in the diagram"
+			}
+		}
+	}
+
+}
+
+puts $ofile "// REFLOG information for: $reflog_branches"
+
+set rlne 0
+
+foreach b $reflog_branches {
+	# Generate reflog information. It's a set of blocks, where each one is direct-bound to:
+	#  - the child reflog block
+	#  - the commit to which it refers
+	# Some versions of git do not support --pretty option, so not using it.
+
+	set log [split [exec git reflog show $b] \n]
+
+	set ue 0
+	set rlentries ""
+	foreach l $log {
+		set p [string first : $l]
+		if { $p == -1 } {
+			#puts stderr "WARNING: git reflog '$b': weird format '$l' (entry skipped)"
+			#continue
+			# Sometimes there's just "hash" at the end, not sure if this is
+			# a bug or expected behavior, nor whether this will occur exactly once
+			set rlinfo "$l $b:END[incr ue]"
+		} else {
+			set rlinfo [string range $l 0 $p-1]
+		}
+		# reusing natural space
+		lappend rlentries [lindex $rlinfo 1] [lindex $rlinfo 0]
+	}
+
+	set bid $::hbrlocal($b)
+
+	set parent ""
+	# Generate diagram entries
+	foreach {name hash} $rlentries {
+		# Create reflog name ID (needed for dot)
+		incr rlne
+		set id rl$rlne
+		set ::rlid($name) $id
+
+		if { [array get ::parents $hash] == "" } {
+			puts $ofile "// SHOULD NOT GET $id ($name): $hash not found among [array names ::parents]"
+			continue
+			# also don't update 'parent'!
+		}
+
+		# Reflog block config
+		puts $ofile "\t$id\[label=\"$name\" shape=diamond style=filled color=\"#55EE77\"\] ;"
+
+		# reflog connections:
+		# - commit
+	    # 	only remember it ?
+		#set commitref($bid/$hash) $id
+		puts $ofile "\t$id -> c$hash ;"
+		# - parent, if set
+		if { $parent != "" } {
+			puts $ofile "\t$parent -> $id ;"
+		}
+		set parent $id
+	}
+}
+
+# This is simultaneously an array that collects all commits present in the diagram
+# foreach {this pars} [array get ::parents] {
+# 	set mine [array get commitref */$this]
+# 	# This $bid/* is only to make keys multiple. We are only interested in values.
+# 	foreach {hash id} $mine {
+# 		puts $ofile "\t$id -> c$this ;"
+# 	}
+# }
+
+# Handle HEADs
+
+puts $ofile "\tHEAD \[color=red shape=box style=filled\] ;"
+
+if { $::headbr == "" } {
+	# detached head. Link to commit.
+	set h [gethash HEAD]
+	puts $ofile "\tHEAD -> c$h \[color=red\] ;"
+} else {
+	puts $ofile "\tHEAD -> $::hbrlocal($::headbr) ;"
+}
+
+# Remote heads
+
+set ne 0
+
+foreach {head branch} $::remoteheads {
+	set brname $::hbrlocal($head)
+	if { [info exists ::hbrlocal($branch)] } {
+		set lbranch $::hbrlocal($branch)
+	} else {
+		# This means that there is no branch defined as well (was skipped)
+		# Need to generate the branch fub as well
+		puts $ofile "\tbr$ne \[label=\"$branch\"  shape=box style=filled color=\"\#FFCCBB\"\] ;"
+		set lbranch br$ne
+		incr ne
+	}
+	puts $ofile "\t$brname\[label=\"$head\" color=red shape=box style=filled\] ;"
+	puts $ofile "\t$brname -> $lbranch ;"
+}
+
+# Check for merge head
+if { [file exists [top]/.git/MERGE_HEAD] } {
+	set mergehash [exec cat [top]/.git/MERGE_HEAD]
+	set mergehash [string range $mergehash 0 6]
+
+	puts $ofile "\tc$mergehash -> c[gethash HEAD] \[style=dotted label=merging\] ;"
+}
+
+puts $ofile "\}"
+
+close $ofile
+
+if { $format == "dot" } {
+	puts stderr "not drawing picture - find dot file in /tmp/$filetemplate.dot"
+	exit 0
+}
+
+puts -nonewline stderr "drawing diagram picture... "
+
+exec >@stdout 2>@stderr dot /tmp/$filetemplate.dot -T$::format -o /tmp/$filetemplate.$::format
+
+puts stderr done.
+
+exec >@stdout 2>@stderr $viewer /tmp/$filetemplate.$::format &

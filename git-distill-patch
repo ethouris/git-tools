@@ -1,0 +1,13 @@
+#!/bin/bash
+
+BRANCH=$1
+PATCH_OVERLAY=$2
+
+if [ -z $PATCH_OVERLAY ]; then
+	echo "Usage: $0 <PARENT BRANCH> <PATCH OVERLAY FILE>"
+	echo "To produce patch overlay file, issue 'git diff' just after rebasing"
+	exit
+fi
+
+git diff $BRANCH | tee PATCH | patch-distill.tcl $PATCH_OVERLAY >PATCH.distilled
+echo "Distilled patch saved in `pwd`/PATCH.distilled"

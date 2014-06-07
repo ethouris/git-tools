@@ -1,0 +1,217 @@
+#!/usr/bin/tclsh8.5
+
+# The idea of git-sp is that:
+# - first argument is the original command of 'git subtree'
+# - rest of the arguments are passed without change
+# - DON'T USE --prefix (alias -P) option. This script supplies it.
+
+set cmd [lindex $argv 0]
+set arglist [lrange $argv 1 end]
+
+
+# constants
+
+proc defaultfetch {} {
+	return "+refs/heads/*:refs/remotes/origin/*"
+}
+
+if { $cmd == "help" || $cmd == "man" } {
+	if { [info exists env(PAGER)] } {
+		set pager $env(PAGER)
+	} else {
+		set pager less
+	}
+
+	exec >@stdout 2>@stderr $pager $env(HOME)/.local/share/doc/git-sp.txt
+	exit 0
+}
+
+if { $cmd == "list" } {
+	# Git config doesn't have a feature to filter wanted items.
+	# Filter on our side.
+
+	set configlist [split [exec git config -l] \n]
+	foreach c $configlist {
+		set eq [string first = $c]
+		if { $eq == -1 } {
+			set config($c) ""
+			continue
+		}
+
+		# Uninterested.
+		if { [string first subtree $c] != 0 } {
+			continue
+		}
+
+		set key [string range $c 0 $eq-1]
+
+		# We don't need this now.
+		set value [string range $c $eq+1 end]
+		#set config($key) $value
+
+		lassign [split $key .] sp prefix val
+		if { $val == "remote" } {
+			puts [format "%20s %s" $prefix $value]
+		}
+	}
+
+	exit 0
+}
+
+
+# Will show error by itself, no need to worry.
+set top [exec git rev-parse --show-toplevel]
+
+# Git toplevel will be always somewhere towards [pwd].
+# We are interested with its beginning. Normalize paths first in order to get the right thing.
+
+# Make sure of that, just to be sane.
+set wd [pwd]
+set gt [file normalize $top]
+if { [string first $gt [pwd]] != 0 } {
+	error "Git toplevel '$gt' is not a prefix for current directory '$wd'"
+}
+
+# Now skip exactly the number of parts already covered by top.
+set npts [llength [file split $gt]]
+set relp [lrange [file split $wd] $npts end]
+
+# and put them back together
+set prefix [expr {$relp == "" ? "" : [file join {*}$relp]}]
+
+if { $cmd in {create configure} } {
+
+	lassign $arglist prefix remote remoteurl
+
+	set top [exec git rev-parse --show-toplevel]
+	if { [pwd] != $top } {
+		puts stderr "git sp: please cd to git toplevel directory: $top"
+		exit 1
+	}
+
+	if { $remote == "" } {
+		puts stderr "git sp: usage: create <prefix> <remote> ?optional:remote-url?"
+		exit 1
+	}
+
+	if { $cmd == "create" && [file exists $prefix] } {
+		puts stderr "git sp: prefix '$prefix' already exists. Either delete it or use 'configure'."
+		exit 1
+	}
+
+	# Create configuration.
+	# Check if remote with this name already exists.
+	# Ignore this problem if the url was given the same.
+
+	if { $remoteurl != "" } { 
+	    if { ![catch {exec git config remote.${remote}.url} existingurl] } {
+	    	if { $existingurl != $remoteurl } {
+	    		puts stderr "git sp: remote '$remote' already has URL: $existingurl"
+	    		exit 1
+	    	}
+			puts stderr "git sp: NOTE: url already exists '$remote': $existingurl"
+	    } else {  ;# Url does not yet exist - create it
+			exec git config remote.${remote}.fetch [defaultfetch]
+			exec git config remote.${remote}.url $remoteurl
+			puts stderr "git sp: NOTE: added new remote '$remote': $remoteurl"
+		}
+	} else {
+		# We expect that this URL already exists.
+		if { [catch {exec git config remote.${remote}.url} none] } {
+			puts stderr "git sp: no remote named '$remote'. Please define or add URL to configure as default"
+		}
+	}
+
+	# Introduce configuration
+
+	exec git config subtree.${prefix}.remote $remote
+	
+	# Don't reconfigure existing branch
+	if { ![catch {exec git config subtree.${prefix}.branch}] } {
+		exec git config subtree.${prefix}.branch master
+		puts stderr "git sp: NOTE: configuring default branch: master"
+	}
+
+	puts stderr "git sp: NOTE: configuration created. Please check if this is ok. Now testing remote:"
+
+	# Now test URL
+	#exec git fetch $remote
+
+	exit 0
+
+} elseif { [catch {exec git config subtree.${prefix}.remote}] } {
+	puts stderr "git sp: subtree.${prefix}.remote - not found"
+	puts stderr "git sp: subtree '$prefix' is not configured. Use 'git sp create' first."
+	exit 1
+}
+
+if { $cmd in {pull push} } {
+	set prev ""
+	set n 0
+	while { $n < [llength $arglist] } {
+		if { [string index [lindex $arglist $n] 0] != "-" } break
+		incr n
+	}
+
+	if { $n == [llength $arglist] } {
+		set rngp [list 0 $n]
+		set rnge [list -1 -1]
+	} else {
+		set rngp [list 0 [expr $n-1]]
+		set rnge [list $n end]
+	}
+
+	set prev [lrange $arglist {*}$rngp]
+	set arglist [lrange $arglist {*}$rnge]
+
+	set remote ""
+	set branch ""
+	
+	if { [llength $arglist] == 2 } {
+		set remote [lindex $arglist 0]
+		set branch [lindex $arglist 1]
+	} elseif { [llength $arglist] == 1 } {
+		set branch [lindex $arglist 0]
+	}
+
+	# Check if parameters were filled in
+
+	# Use the url or remote taken from config
+	if { $remote == "" } {
+		if { ![catch {set url [exec git config subtree.${prefix}.url]}] } {
+			set remote $url
+		} elseif { ![catch {set remote [exec git config subtree.${prefix}.remote]}] } {
+			# we set remote!
+		} else {
+			puts stderr "git sp: No URL and no remote found in subtree.${prefix}.\nPlease configure or use explicit URL"
+			exit 1
+		}
+	}
+
+	if { $branch == "" } {
+		if { ![catch {set branch [exec git config subtree.${prefix}.branch]}] } {
+			# ok
+		} else {
+			puts stderr "git sp: no branch defined for $prefix in config: subtree.${prefix}.branch - please specify branch"
+			exit 1
+		}
+	}
+
+	set arglist [concat $prev $remote $branch]
+}
+
+set cmdline [list git subtree $cmd -P $prefix {*}$arglist]
+
+# XXX TEST
+#puts "WILL DO: $cmdline"
+
+cd $gt
+puts stderr "($gt)>>> $cmdline"
+set err [catch {exec >@stdout 2>@stderr {*}$cmdline} out]
+cd $wd
+
+if { $err } {
+	puts "ERROR: $out"
+}
+
+# vim:ft=tcl
