@@ -60,11 +60,10 @@ proc normalize v {
 		return "\"[string range $v 1 end-1]\""
 	}
 
-	if { [string first " " $v] != -1 } {
-		|| [string first "\{" $v] != -1
-		|| [string first "\}" $v] != -1
-		|| [string first "=" $v] != -1 } {
-		return "\"$v\""
+	foreach t {" " "\{" "\}" =} {
+		if { [string first $t $v] != -1 } {
+			return "\"$v\""
+		}
 	}
 
 	return $v
