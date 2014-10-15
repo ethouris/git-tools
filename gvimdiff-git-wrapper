@@ -1,0 +1,54 @@
+#!/usr/bin/tclsh
+
+# This tool does better job as default configuration of 'gvimdiff' used as a difftool.
+# It does the same if both files exist and the file was just altered - plus prints 'DIFF' message on console.
+# If the file has been added or deleted, it just prints the info on the screen and
+# allows you to edit the new file (if added) or diff-edit the new file under the name
+# of the deleted file, if you answer 'e' for the prompt.
+
+
+# To use that, put the following lines in your .gitconfig file:
+#
+# [diff]
+# 	tool = gvimdiffwrp
+# 
+# [difftool]
+# 	prompt = no
+# 
+# [difftool.gvimdiffwrp]
+# 	cmd = gvimdiff-git-wrapper $LOCAL $REMOTE $BASE
+
+
+
+
+proc ask text {
+	puts -nonewline $text
+	flush stdout
+}
+
+proc answer {} {
+	set a [gets stdin]
+	return [string tolower [string index $a 0]]
+}
+
+lassign $argv older newer base
+
+if { $older == "/dev/null" } {
+
+	ask "NEW:  '$newer'  (e)dit/(s)kip \[e/S\] "
+	if { [answer] == "e" } {
+		exec gvim -f $newer
+	}
+	exit 0
+}
+
+if { $newer == "/dev/null" } {
+	ask "DELETED:  '$base' (e)dit as new/(s)kip \[e/S\] "
+	if { [answer] == "e" } {
+		exec gvim -f -d $older $base
+	}
+	exit 0
+}
+
+puts "DIFF: '$base'"
+exec gvim -f -d $older $newer
