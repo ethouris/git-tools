@@ -1,0 +1,11 @@
+#!/usr/bin/tclsh8.5
+
+set top [exec git rev-parse --show-toplevel]
+set wd [pwd]
+set i [string length $top]
+while { [string index $wd $i] == "/" } {
+	incr i
+}
+
+puts [string range $wd $i end]
+

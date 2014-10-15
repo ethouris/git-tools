@@ -1,0 +1,131 @@
+#!/usr/bin/tclsh
+
+# Requires: "git top" command
+
+set screwpath 0
+if { "-l" in $argv } {
+	set screwpath 1
+} elseif { "-g" in $argv } {
+	set screwpath -1
+}
+
+set git_options "--porcelain"
+
+# Show untacked
+if { "-u" ni $argv } {
+	lappend git_options -uno
+}
+
+set only ""
+
+set onlyopt [lsearch -inline $argv -o*]
+if { $onlyopt != "" } {
+	switch -- [string range $onlyopt 2 end] {
+		m { set only mod }
+		a { set only add }
+		d { set only del }
+		o { set only ??? }
+		default {
+			puts stderr "Incorrect -o (only) option: use one of: m, a, d, o"
+			exit 1
+		}
+	}
+}
+
+set args ""
+foreach a $argv {
+	if { [string index $a 0] != "-" } {
+		lappend args $a
+	}
+}
+
+set top [exec git top]
+puts -nonewline stderr "Reading status data from $top... "
+set porc [exec git status {*}$git_options {*}$args]
+puts stderr "done."
+
+
+
+proc localize {cwd path} {
+
+	if { [file pathtype $path] == "relative" } {
+		return $path
+	}
+
+	set localcomp [file split $cwd]
+	set path [file normalize $path] ;# for any case, skip any weird things
+	# Check for simple strip
+	if { [string first $cwd $path] == 0 } {
+		return [string range $path [string length $cwd]+1 end]
+	}
+
+	set pathcomp [file split $path]
+
+	# Find split point
+	set len [llength $localcomp]
+	for {set i 0} {$i < $len} {incr i} {
+		if { [lindex $localcomp $i] != [lindex $pathcomp $i] } {
+			break
+		}
+	}
+
+	#puts stderr "PWD: $localcomp"
+	#puts stderr "PTH: $pathcomp"
+	#puts stderr "Mismatch at \[$i\]"
+
+	# Strip common prefix
+	set furthercomp [lrange $localcomp $i end]
+	set pathcomp [lrange $pathcomp $i end]
+
+	set updir [lrepeat [llength $furthercomp] ..]
+	set comp [concat $updir $pathcomp]
+
+	return [file join {*}$comp]
+}
+
+if { $only == "" } {
+	puts stderr "=Stg View Path"
+}
+
+set sigmap {
+	M mod
+	A add
+	R ren
+	C cpy
+	U upd
+	D del
+	" " ---
+	? ???
+}
+
+array set sig $sigmap
+
+proc screw path {
+	if { !$::screwpath } {
+		return "\"\$(git-top)/$path\""
+	} elseif { 1+$::screwpath } {  ;# local
+		return [localize [pwd] [file join $::top $path]]
+	} else { ;# global
+		return [file join $::top $path]
+	}
+}
+
+foreach ln [split $porc \n] {
+	set istage [string index $ln 0]
+	set iview [string index $ln 1]
+	set path [string range $ln 3 end] ;# [2] is space
+
+	if { [llength $path] == 3 && [lindex $path 1] == "->" } {
+		set tar [lindex $path 2]
+		set path [lindex $path 0]
+		set pathline "[screw $path] -> [screw $tar]"
+	} else {
+		set pathline [screw $path]
+	}
+
+	if { $only == "" } {
+		puts " $sig($istage) $sig($iview) $pathline"
+	} elseif { $sig($iview) == $only } {
+		puts $pathline
+	}
+}

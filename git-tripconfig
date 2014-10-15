@@ -1,0 +1,93 @@
+#!/usr/bin/tclsh
+
+set opt ""
+if { "-l" in $argv } {
+	set opt "--local "
+} elseif { "-g" in $argv } {
+	set opt "--global "
+}
+
+set cmd "exec git config ${opt}-l"
+
+set confitems [split [{*}$cmd] \n]
+
+set config ""
+
+foreach i $confitems {
+	set value [lassign [split $i =] name]
+	if { [llength $value] != 1 } {
+		set value [join $value =]
+	}
+
+	set dictpath [split $name .]
+
+	# Fix the path if there's something quite wrong
+	set first [lindex $dictpath 0]
+	if { $first in {branch remote} } {
+		# Take care of that there are exactly THREE elements.
+		# If there are more than three, it means that some inside contained a dot.
+		if { [llength $dictpath] > 3 } {
+			set last [lindex $dictpath end]
+			set mid [lrange $dictpath 1 end-1]
+			set dictpath [list $first [join $mid .] $last]
+		}
+	}
+
+	dict set config {*}$dictpath $value
+	#puts [file join {*}$dictpath]=$value
+}
+
+proc normalize v {
+
+	# Check if the string doesn't contain ""
+	# If so, use escape characters.
+	# Unless they are only in the beginning and the end.
+
+	set charset [split $v ""]
+	set quotes [lsearch -all $charset "\""]
+	if { [llength $quotes] == 2
+		|| [lindex $quotes 0] == 0
+		|| [lindex $quotes 1] == [llength $charset]-1 } {
+		# go on
+	} else {
+		# replace with backquotes
+		foreach ix $quotes {
+			set quotes [lreplace $quotes $ix $ix "\\\""
+		}
+	}
+
+	if { [string index $v 0] == "\{" } {
+		return "\"[string range $v 1 end-1]\""
+	}
+
+	foreach t {" " "\{" "\}" =} {
+		if { [string first $t $v] != -1 } {
+			return "\"$v\""
+		}
+	}
+
+	return $v
+}
+
+proc print_dict {tabs d} {
+	set otabs $tabs
+	set tabs "    $tabs"
+	set out "{\n"
+	foreach k [dict keys $d] {
+		set v [dict get $d $k]
+		if { [llength $v]%2 == 0 } {
+			# Subdict
+			set subdict [print_dict $tabs $v]
+			append out "$tabs$k $subdict\n"
+		} else {
+			set v [normalize $v]
+			append out "$tabs$k = $v\n"
+		}
+	}
+	append out "$otabs}\n"
+
+	return $out
+}
+
+puts "git [print_dict {} $config]"
+

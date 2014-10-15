@@ -20,6 +20,11 @@
 
 
 
+if { [info exists env(DISPLAY)] } {
+	set vim gvim
+} else {
+	set vim vim
+}
 
 proc ask text {
 	puts -nonewline $text
@@ -37,7 +42,7 @@ if { $older == "/dev/null" } {
 
 	ask "NEW:  '$newer'  (e)dit/(s)kip \[e/S\] "
 	if { [answer] == "e" } {
-		exec gvim -f $newer
+		exec $vim -f $newer
 	}
 	exit 0
 }
@@ -45,10 +50,10 @@ if { $older == "/dev/null" } {
 if { $newer == "/dev/null" } {
 	ask "DELETED:  '$base' (e)dit as new/(s)kip \[e/S\] "
 	if { [answer] == "e" } {
-		exec gvim -f -d $older $base
+		exec $vim -f -d $older $base
 	}
 	exit 0
 }
 
 puts "DIFF: '$base'"
-exec gvim -f -d $older $newer
+exec $vim -f -d $older $newer
