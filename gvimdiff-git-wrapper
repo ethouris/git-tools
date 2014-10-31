@@ -40,9 +40,14 @@ lassign $argv older newer base
 
 if { $older == "/dev/null" } {
 
-	ask "NEW:  '$newer'  (e)dit/(s)kip \[e/S\] "
-	if { [answer] == "e" } {
-		exec $vim -f $newer
+	ask "NEW:  '$newer'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
+	switch -- [answer] {
+		e {
+			exec $vim -f $newer
+		}
+		d {
+			exec git rm --cached $newer
+		}
 	}
 	exit 0
 }
