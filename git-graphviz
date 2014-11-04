@@ -44,7 +44,7 @@ foreach {option default} $config {
 }
 
 proc gethist {} {
-	return [exec git log -n $::limit "--pretty=format:%h %p" $::options(origin)]
+	return [exec git log -n $::limit "--pretty=format:%h %p" $::origin]
 }
 
 proc getinfo hash {
