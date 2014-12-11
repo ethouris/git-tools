@@ -1,7 +1,5 @@
 #!/usr/bin/tclsh
 
-# Requires: "git top" command
-
 set screwpath 1
 if { "-l" in $argv } {
 	set screwpath 1
@@ -50,12 +48,40 @@ foreach a $argv {
 	}
 }
 
-set top [exec git top]
-puts -nonewline stderr "Reading status data from $top... "
+set top [exec git rev-parse --show-toplevel]
+
+if { $only == "" } {
+
+lassign [exec cat $top/.git/HEAD] hdx path
+if { $hdx == "ref:" } {
+	set brname [file tail $path]
+
+	# Find the branch in the configuration
+	set reponame [exec git config branch.$brname.remote]	
+	if { $reponame == "" } { 
+		set hosted "(LOCAL)"
+	} else { 
+		set repourl [exec git config remote.$reponame.url]
+		set hosted "$reponame ($repourl)"
+	}
+
+	set hh [exec git show --format=format:%H HEAD]
+	set hh [lindex [split $hh \n] 0]
+	set branch "BRANCH: $brname    OBJECT: $hh"
+	set hosted "HOSTED: $hosted"
+	puts stderr "=$branch"
+	puts stderr "=$hosted"
+} else {
+	set branch "DETACHED: $hdx"
+	puts stderr "=$branch"
+}
+
+}
+
+
+puts -nonewline stderr "Reading..."
 set porc [exec git status {*}$git_options {*}$args]
-puts stderr "done."
-
-
+puts -nonewline stderr "\r                                \r"
 
 proc localize {cwd path} {
 
