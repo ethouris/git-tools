@@ -69,8 +69,8 @@ if { $hdx == "ref:" } {
 	set hh [lindex [split $hh \n] 0]
 	set branch "BRANCH: $brname    OBJECT: $hh"
 	set hosted "HOSTED: $hosted"
-	puts stderr "=$branch"
 	puts stderr "=$hosted"
+	puts stderr "=$branch"
 } else {
 	set branch "DETACHED: $hdx"
 	puts stderr "=$branch"
