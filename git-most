@@ -1,36 +1,45 @@
 #!/usr/bin/tclsh
 
-# Requires: "git top" command
-
-set screwpath 0
+set screwpath 1
 if { "-l" in $argv } {
 	set screwpath 1
 } elseif { "-g" in $argv } {
 	set screwpath -1
+} elseif { "-a" in $argv } {
+	set screwpath 0
 }
 
 set git_options "--porcelain"
 
-# Show untacked
-if { "-u" ni $argv } {
-	lappend git_options -uno
-}
-
 set only ""
+set onlyin ""
 
 set onlyopt [lsearch -inline $argv -o*]
 if { $onlyopt != "" } {
-	switch -- [string range $onlyopt 2 end] {
-		m { set only mod }
-		a { set only add }
-		d { set only del }
-		o { set only ??? }
-		default {
-			puts stderr "Incorrect -o (only) option: use one of: m, a, d, o"
-			exit 1
+	set oo [string range $onlyopt 2 end]
+	while 1 {
+		switch -- [string index $oo 0] {
+			m { set only mod }
+			a { set only add }
+			d { set only del }
+			o { set only ??? }
+			u { set only ??? }
+			s { set onlyin stage; set oo [string range $oo 1 end]; continue }
+			v { set onlyin view; set oo [string range $oo 1 end]; continue }
+			default {
+				puts stderr "Incorrect -o (only) option: use one of: m, a, d, o, s, v"
+				exit 1
+			}
 		}
+		break
 	}
 }
+
+# Show untacked (also if untracked-only)
+if { "-u" ni $argv && $only != "???" } {
+	lappend git_options -uno
+}
+
 
 set args ""
 foreach a $argv {
@@ -39,12 +48,40 @@ foreach a $argv {
 	}
 }
 
-set top [exec git top]
-puts -nonewline stderr "Reading status data from $top... "
+set top [exec git rev-parse --show-toplevel]
+
+if { $only == "" } {
+
+lassign [exec cat $top/.git/HEAD] hdx path
+if { $hdx == "ref:" } {
+	set brname [file tail $path]
+
+	# Find the branch in the configuration
+	set reponame [exec git config branch.$brname.remote]	
+	if { $reponame == "" } { 
+		set hosted "(LOCAL)"
+	} else { 
+		set repourl [exec git config remote.$reponame.url]
+		set hosted "$reponame ($repourl)"
+	}
+
+	set hh [exec git show --format=format:%H HEAD]
+	set hh [lindex [split $hh \n] 0]
+	set branch "BRANCH: $brname    OBJECT: $hh"
+	set hosted "HOSTED: $hosted"
+	puts stderr "=$hosted"
+	puts stderr "=$branch"
+} else {
+	set branch "DETACHED: $hdx"
+	puts stderr "=$branch"
+}
+
+}
+
+
+puts -nonewline stderr "Reading..."
 set porc [exec git status {*}$git_options {*}$args]
-puts stderr "done."
-
-
+puts -nonewline stderr "\r                                \r"
 
 proc localize {cwd path} {
 
@@ -123,9 +160,17 @@ foreach ln [split $porc \n] {
 		set pathline [screw $path]
 	}
 
+	if { $onlyin == "view" } {
+		set onlywanted { $sig($iview) == $only }
+	} elseif { $onlyin == "stage" } {
+		set onlywanted { $sig($istage) == $only }
+	} else {
+		set onlywanted { $sig($iview) == $only || $sig($istage) == $only } 
+	}
+
 	if { $only == "" } {
 		puts " $sig($istage) $sig($iview) $pathline"
-	} elseif { $sig($iview) == $only } {
+	} elseif $onlywanted {
 		puts $pathline
 	}
 }

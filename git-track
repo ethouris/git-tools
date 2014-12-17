@@ -1,0 +1,85 @@
+#!/usr/bin/tclsh
+
+set branch_names [exec git branch -r | grep -v origin/HEAD]
+
+set branches ""
+foreach b $branch_names {
+	lappend branches [file tail $b]
+}
+
+set new no
+set lix [lsearch $argv -n]
+if { $lix != -1 } {
+	set new yes
+	set argv [lreplace $argv $lix $lix]
+}
+
+set br $argv
+
+if { $br == "--help" } {
+	puts stderr "Usage: [file tail $argv0] <branch> (will track remotes/origin/<branch>)"
+	exit 1
+}
+
+if { $br == "" } {
+	set lobra [exec git branch]
+	set cur ""
+	foreach b [split $lobra \n] {
+		if { [string index $b 0] == "*" } {
+			set cur [string range $b 2 end]
+			if { [string index $cur 0] == "(" } {
+				puts stderr "Current branch is '$cur'."
+				puts stderr "Please pass the branch name as argument (use --help for details)"
+				exit 1
+			}
+		}
+	}
+
+	set br "-l $cur"
+}
+
+set bi [lindex $br 0]
+
+if { $bi == "-l" || $bi == "--list" } {
+	set conf [exec git-tripconfig]
+	set branches [dict get $conf git branch]
+	set br [lindex $br 1]
+
+	set brn [expr {$br == "" ? [dict keys $branches] : $br}]
+	foreach b $brn {
+		set bdata ""
+		foreach {k eq v} [dict get $branches $b] {
+			dict set bdata $k $v
+		}
+
+		set parts [file split [dict get $bdata merge]]
+		set ff [file join {*}[lrange $parts 2 end]]  ;# cut off refs/heads/
+
+		puts [format "%-20s %s" $b remotes/[dict get $bdata remote]/$ff]
+	}
+	exit 0
+}
+
+if { !$new && $br ni $branches } {
+	puts stderr "No such remote branch: '$br'. Use -n to create it as a new remote branch."
+	puts stderr "Available remote branches:"
+	puts stderr $branches
+	exit 1
+}
+
+set cmd [list exec >@stdout git branch -f $br origin/$br]
+puts stderr ">>> $cmd"
+
+set fail [catch $cmd err]
+if { ![string first "ambiguous information for" $err] } {
+	error "Unknown git error"
+}
+
+if { $new || $fail } {
+	puts "NOTE: adding manually"
+	exec >@stdout git config branch.$br.remote origin
+	exec >@stdout git config branch.$br.merge refs/heads/$br
+}
+
+
+

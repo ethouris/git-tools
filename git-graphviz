@@ -368,7 +368,7 @@ foreach t $taglist {
 
 	if { [info exists ::parents($h)] } {
 		# Create tag fub
-		puts $ofile "\t$tname\[label=\"$t\" shape=tab style=filled,bold color=black fillcolor=\"#BBCCFF\"\] ;"
+		puts $ofile "\t$tname\[label=\"$t\" shape=tab style=filled color=black fillcolor=\"#BBCCFF\"\] ;"
 		# Bind to the commit with given hash
 		puts $ofile "\t$tname -> c$h ;"
 	}
