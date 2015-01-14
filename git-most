@@ -50,9 +50,16 @@ foreach a $argv {
 
 set top [exec git rev-parse --show-toplevel]
 
+set gitdir $top/.git
+
+if { [file isfile $gitdir] } {
+	set gitdirspec [exec cat $gitdir]
+	set gitdir [lindex $gitdirspec 1]
+}
+
 if { $only == "" } {
 
-lassign [exec cat $top/.git/HEAD] hdx path
+lassign [exec cat $gitdir/HEAD] hdx path
 if { $hdx == "ref:" } {
 	set brname [file tail $path]
 
