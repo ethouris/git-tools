@@ -64,7 +64,9 @@ if { $hdx == "ref:" } {
 	set brname [file tail $path]
 
 	# Find the branch in the configuration
-	set reponame [exec git config branch.$brname.remote]	
+	if { [catch {set reponame [exec git config branch.$brname.remote]}] } {
+		set reponame ""
+	}
 	if { $reponame == "" } { 
 		set hosted "(LOCAL)"
 	} else { 
