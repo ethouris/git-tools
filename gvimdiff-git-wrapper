@@ -16,8 +16,10 @@
 # 	prompt = no
 # 
 # [difftool.gvimdiffwrp]
-# 	cmd = gvimdiff-git-wrapper $LOCAL $REMOTE $BASE
+#	cmd = gvimdiff-git-wrapper "\"$LOCAL\"" "\"$REMOTE\"" \""$BASE\""
 
+# ^^^ IMPORTANT!!! These "double quoting" things are necessary so that
+# names with spaces are correctly handled!
 
 proc getpath arg { return $arg }
 
@@ -40,7 +42,24 @@ proc ask text {
 	flush stdout
 }
 
+set autoskip no
+if { [info exists env(AUTOSKIP)] } {
+	set as $env(AUTOSKIP)
+	if { [string is bool $as] } {
+		set autoskip $as
+	}
+}
+
+set skipfiles ""
+if { [info exists env(SKIPFILES)] } {
+	set skipfiles $env(SKIPFILES)
+}
+
 proc answer {} {
+	if { $::autoskip } {
+		puts " (AUTOSKIP)"
+		return ""
+	}
 	set a [gets stdin]
 	return [string tolower [string index $a 0]]
 }
@@ -69,5 +88,21 @@ if { $newer == "/dev/null" } {
 	exit 0
 }
 
-puts "DIFF: '$base'"
-exec >@stdout $vim -f -d [getpath $older] [getpath $newer]
+if { $base == "/dev/null" } {
+	set base $older ;# Nothing else
+}
+
+foreach mask $skipfiles {
+	if { [string match $mask $older] } {
+		puts "SKIPPING (for $mask): '$base'"
+		exit 0
+	}
+}
+
+puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
+# This call to 'diff' ignores differences caused by Windows EOLs.
+if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
+	exec $vim -f -d [getpath $older] [getpath $newer]
+} else {
+	puts " --- files '$older' and '$newer' don't differ!"
+}
