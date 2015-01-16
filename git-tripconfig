@@ -48,11 +48,20 @@ proc normalize v {
 	if { [llength $quotes] == 2
 		|| [lindex $quotes 0] == 0
 		|| [lindex $quotes 1] == [llength $charset]-1 } {
-		# go on
+			# go on
 	} else {
-		# replace with backquotes
-		foreach ix $quotes {
-			set quotes [lreplace $quotes $ix $ix "\\\""
+		#puts stderr "In String: '$v'"
+		#puts stderr "Found quotes at: $quotes"
+		set has [expr {$quotes != ""}]
+		if { $has } {
+			#puts stderr "Source list: $charset"
+			# replace with backquotes
+			foreach ix $quotes {
+				set charset [lreplace $charset $ix $ix "\\\""]
+			}
+			#puts stderr "Processed list: $charset"
+			set v [join $charset ""]
+			#puts stderr "Processed string: $v"
 		}
 	}
 
