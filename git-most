@@ -169,16 +169,25 @@ foreach ln [split $porc \n] {
 		set pathline [screw $path]
 	}
 
+	set sig_view "??$iview"
+	set sig_stage "??$istage"
+	if { [info exists sig($iview)] } {
+		set sig_view $sig($iview)
+	}
+	if { [info exists sig($istage)] } {
+		set sig_stage $sig($istage)
+	}
+
 	if { $onlyin == "view" } {
-		set onlywanted { $sig($iview) == $only }
+		set onlywanted { $sig_view == $only }
 	} elseif { $onlyin == "stage" } {
-		set onlywanted { $sig($istage) == $only }
+		set onlywanted { $sig_stage == $only }
 	} else {
-		set onlywanted { $sig($iview) == $only || $sig($istage) == $only } 
+		set onlywanted { $sig_view == $only || $sig_stage == $only } 
 	}
 
 	if { $only == "" } {
-		puts " $sig($istage) $sig($iview) $pathline"
+		puts " $sig_stage $sig_view $pathline"
 	} elseif $onlywanted {
 		puts $pathline
 	}
