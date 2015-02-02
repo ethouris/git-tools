@@ -54,7 +54,7 @@ set gitdir $top/.git
 
 if { [file isfile $gitdir] } {
 	set gitdirspec [exec cat $gitdir]
-	set gitdir [lindex $gitdirspec 1]
+	set gitdir [file join $top [lindex $gitdirspec 1]]
 }
 
 if { $only == "" } {
@@ -74,8 +74,11 @@ if { $hdx == "ref:" } {
 		set hosted "$reponame ($repourl)"
 	}
 
-	set hh [exec git show --format=format:%H HEAD]
-	set hh [lindex [split $hh \n] 0]
+	if { ![catch {set hh [exec git show --format=format:%H HEAD]}] } {
+		set hh [lindex [split $hh \n] 0]
+	} else {
+		set hh "<NOT CREATED YET>"  ;# The initial case when HEAD does not exist
+	}
 	set branch "BRANCH: $brname    OBJECT: $hh"
 	set hosted "HOSTED: $hosted"
 	puts stderr "=$hosted"
