@@ -28,9 +28,12 @@ if { [catch {exec uname -o} osname] } {
 }
 
 if { [info exists env(DISPLAY)] } {
-	set vim gvim
+	set vim "gvim -f"
 } elseif { $osname == "Cygwin" && [info exists env(VIMPATH)]} {
 	set vim $env(VIMPATH)
+	if { [string match gvim* [file tail $vim]] } {
+		lappend vim -f
+	}
 	rename getpath ""
 	proc getpath arg { return [exec cygpath -w $arg] }
 } else {
@@ -68,15 +71,34 @@ lassign $argv older newer base
 
 if { $older == "/dev/null" } {
 
-	ask "NEW:  '$newer'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
-	switch -- [answer] {
-		e {
-			exec $vim -f [getpath $newer]
+	set fname $newer
+	if { [string index $fname 0] == "/" && [lindex [file split [string range $fname 1 end]] 0] == "tmp" } {
+		set fname $base
+	}
+
+	if { [catch {set ftype [file type $fname]}] } {
+		set ftype THING
+	}
+
+	if { $ftype == "file" } {
+	
+		ask "NEW: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
+		switch -- [answer] {
+			e {
+				exec >@stdout {*}$vim [getpath $fname]
+			}
+			d {
+				exec >@stdout git rm --cached [getpath $fname]
+			}
 		}
-		d {
-			exec >@stdout git rm --cached [getpath $newer]
+	} else {
+		# For other types offer just deletion
+		ask "NEW: $ftype '$fname'  (s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[S/d\] "
+		if { [answer] == "d" } {
+			exec >@stdout git rm --cached [getpath $fname]
 		}
 	}
+
 	exit 0
 }
 
@@ -110,7 +132,7 @@ foreach mask $skipfiles {
 puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
 # This call to 'diff' ignores differences caused by Windows EOLs.
 if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
-	exec $vim -f -d [getpath $older] [getpath $newer]
+	exec >@stdout {*}$vim -d [getpath $older] [getpath $newer]
 } else {
 	puts " --- files '$older' and '$newer' don't differ!"
 }
