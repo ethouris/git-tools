@@ -106,10 +106,11 @@ if { $newer == "/dev/null" } {
 	ask "DELETED:  '$base' (e)dit as new/(s)kip/(r)estore in the repo \[e/S/r\] "
     switch -- [answer] {
 		e {
-			exec >@stdout $vim -f -d [getpath $older] [getpath $base]
+			exec >@stdout {*}$vim -d [getpath $older] [getpath $base]
 		}
 
 		r {
+			file mkdir [file dirname $base] ;# make sure the directory exists
 			exec >@stdout touch $base  ;# make sure the file exists
 			exec >@stdout git add $base  ;# add as empty so that it's noted
 			file copy -force $older $base  ;# now copy the contents to see it modified locally

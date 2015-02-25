@@ -76,10 +76,12 @@ if { $hdx == "ref:" } {
 
 	if { ![catch {set hh [exec git show --format=format:%H HEAD]}] } {
 		set hh [lindex [split $hh \n] 0]
+		set hhs [string range $hh 0 7]
 	} else {
-		set hh "<NOT CREATED YET>"  ;# The initial case when HEAD does not exist
+		set hh ""
+		set hhs "<TO-BE-SET>"  ;# The initial case when HEAD does not exist
 	}
-	set branch "BRANCH: $brname    OBJECT: $hh"
+	set branch "BRANCH: $brname    OBJECT: $hhs"
 	set hosted "HOSTED: $hosted"
 	puts stderr "=$hosted"
 	puts stderr "=$branch"
