@@ -86,20 +86,28 @@ if { $hdx == "ref:" } {
 	# This is not supported up to git 1.7.1, just blindly try.
 	if { ![catch {exec git status --short --branch} outlines] } {
 		set line1 [lindex [split $outlines \n] 0]
+		
+		set distoriginfo ""
+		set branchrange .WTF???
+		catch {set distoriginfo [lassign $line1 hashhash branchrange]}
+		# This stupid git must use [] dunno what for.
+		set p [string first "\[" $line1]
+		if { $p == -1 } {
+			set distinfo [join $distoriginfo " "]
+		} else {
+			set distinfo [string range $line1 $p+1 end-1]
+		}
 
-		set distinfo [lassign $line1 hashhash branchrange]
+		puts stderr "*** DIST INFO: '$distinfo'"
 		set remotebranch [lindex [split $branchrange .] end]
 		if { $distinfo == "" } {
 			set distance "(in head with $remotebranch)"
-		} elseif { [string index $distinfo 0] == "\[" && [string index $distinfo end] == "\]" } {
-			set distinfo [string range $distinfo 1 end-1]
+		} else {
 			set direction [lindex $distinfo 0]
 			if { $direction == "ahead" } {
 				lappend direction of
 			}
 			set distance "([lindex $distinfo 1] $direction $remotebranch)"
-		} else {
-			set distance $distinfo
 		}
 	}
 
