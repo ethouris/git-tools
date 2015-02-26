@@ -81,7 +81,26 @@ if { $hdx == "ref:" } {
 		set hh ""
 		set hhs "<TO-BE-SET>"  ;# The initial case when HEAD does not exist
 	}
-	set branch "BRANCH: $brname    OBJECT: $hhs"
+
+	set distance " (distance not supported)"
+	# This is not supported up to git 1.7.1, just blindly try.
+	if { ![catch {exec git status --short --branch} outlines] } {
+		set line1 [lindex [split $outlines \n] 0]
+
+		set distinfo [lassign $line1 hashhash branchrange]
+		if { [string index $distinfo 0] == "\[" && [string index $distinfo end] == "\]" } {
+			set distinfo [string range $distinfo 1 end-1]
+			set direction [lindex $distinfo 0]
+			if { $direction == "ahead" } {
+				lappend direction of
+			}
+			set distance "([lindex $distinfo 1] $direction [lindex [split $branchrange .] end])"
+		} else {
+			set distance $distinfo
+		}
+	}
+
+	set branch "BRANCH: $brname    OBJECT: $hhs   $distance"
 	set hosted "HOSTED: $hosted"
 	puts stderr "=$hosted"
 	puts stderr "=$branch"
