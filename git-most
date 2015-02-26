@@ -88,13 +88,16 @@ if { $hdx == "ref:" } {
 		set line1 [lindex [split $outlines \n] 0]
 
 		set distinfo [lassign $line1 hashhash branchrange]
-		if { [string index $distinfo 0] == "\[" && [string index $distinfo end] == "\]" } {
+		set remotebranch [lindex [split $branchrange .] end]
+		if { $distinfo == "" } {
+			set distance "(in head with $remotebranch)"
+		} elseif { [string index $distinfo 0] == "\[" && [string index $distinfo end] == "\]" } {
 			set distinfo [string range $distinfo 1 end-1]
 			set direction [lindex $distinfo 0]
 			if { $direction == "ahead" } {
 				lappend direction of
 			}
-			set distance "([lindex $distinfo 1] $direction [lindex [split $branchrange .] end])"
+			set distance "([lindex $distinfo 1] $direction $remotebranch)"
 		} else {
 			set distance $distinfo
 		}
