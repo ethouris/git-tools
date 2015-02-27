@@ -101,13 +101,19 @@ if { $hdx == "ref:" } {
 		#puts stderr "*** DIST INFO: '$distinfo'"
 		set remotebranch [lindex [split $branchrange .] end]
 		if { $distinfo == "" } {
-			set distance "(in head with $remotebranch)"
+			set distance "(= $remotebranch)"
 		} else {
-			set direction [lindex $distinfo 0]
-			if { $direction == "ahead" } {
-				lappend direction of
+			set direction ?
+			switch -- [lindex $distinfo 0] {
+				ahead {
+					set direction +
+				}
+
+				behind {
+					set direction -
+				}
 			}
-			set distance "([lindex $distinfo 1] $direction $remotebranch)"
+			set distance "($remotebranch $direction [lindex $distinfo 1])"
 		}
 	}
 
