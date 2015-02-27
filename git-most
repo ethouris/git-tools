@@ -98,7 +98,7 @@ if { $hdx == "ref:" } {
 			set distinfo [string range $line1 $p+1 end-1]
 		}
 
-		puts stderr "*** DIST INFO: '$distinfo'"
+		#puts stderr "*** DIST INFO: '$distinfo'"
 		set remotebranch [lindex [split $branchrange .] end]
 		if { $distinfo == "" } {
 			set distance "(in head with $remotebranch)"
