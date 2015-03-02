@@ -86,6 +86,7 @@ if { $hdx == "ref:" } {
 	# This is not supported up to git 1.7.1, just blindly try.
 	if { ![catch {exec git status --short --branch} outlines] } {
 		set line1 [lindex [split $outlines \n] 0]
+		#puts stderr "*** STATUSINFO: $line1"
 		
 		set distoriginfo ""
 		set branchrange .WTF???
@@ -99,7 +100,17 @@ if { $hdx == "ref:" } {
 		}
 
 		#puts stderr "*** DIST INFO: '$distinfo'"
-		set remotebranch [lindex [split $branchrange .] end]
+		# No, this must be exactly "..."
+		set sep ...
+		set pos [string first $sep $branchrange]
+		if { $pos == -1 } {
+			# Stupid fallback
+			set remotebranch $branchrange
+		} else {
+			set remotebranch [string range $branchrange [expr {$pos+[string length $sep]}] end]
+		}
+		#puts stderr "*** REMOTE BRANCH: $remotebranch"
+
 		if { $distinfo == "" } {
 			set distance "(= $remotebranch)"
 		} else {

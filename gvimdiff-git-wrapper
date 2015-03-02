@@ -103,6 +103,17 @@ if { $older == "/dev/null" } {
 }
 
 if { $newer == "/dev/null" } {
+	
+	# It's impossible that it gets diff on a directory - git doesn't version directories.
+	# If it happens, it means that it's a directory for a submodule.
+	# Skip this completely - it should be reinstated by a submodule command
+	# basing on settings in .gitmodules file
+
+	if { [file type $older] == "directory" } {
+		puts stderr "WARNING: Ths '$base' directory is present as diff - it's possibly a submodule"
+		exit 0
+	}
+
 	ask "DELETED:  '$base' (e)dit as new/(s)kip/(r)estore in the repo \[e/S/r\] "
     switch -- [answer] {
 		e {
@@ -110,10 +121,15 @@ if { $newer == "/dev/null" } {
 		}
 
 		r {
+			set attr [file attributes $older] ;# Copy the attributes, too!
 			file mkdir [file dirname $base] ;# make sure the directory exists
 			exec >@stdout touch $base  ;# make sure the file exists
 			exec >@stdout git add $base  ;# add as empty so that it's noted
 			file copy -force $older $base  ;# now copy the contents to see it modified locally
+			puts stderr "NOTE: Applying attributes from '$older': $attr"
+			if { [catch {file attributes $base {*}$attr} rror] } {
+				puts stderr "*** WARNING: Failed to set original attributes to '$base'!"
+			}
 		}
 	}
 	exit 0
