@@ -128,7 +128,7 @@ if { $hdx == "ref:" } {
 		}
 	}
 
-	set branch "BRANCH: $brname    OBJECT: $hhs   $distance"
+	set branch "BRANCH: $brname $distance    OBJECT: $hhs"
 	set hosted "HOSTED: $hosted"
 	puts stderr "=$hosted"
 	puts stderr "=$branch"
