@@ -99,6 +99,31 @@ if { $hdx == "ref:" } {
 			set distinfo [string range $line1 $p+1 end-1]
 		}
 
+		set ahead ""
+		set behind ""
+		# Both can be found, unfortunately
+		if { [string first , $distinfo] != -1 } {
+			set parts [split $distinfo ,]
+			set one [string trim [lindex $parts 0]]
+			set two [string trim [lindex $parts 1]]
+			foreach {dir val} [concat $one $two] {
+				if { $dir ni {ahead behind} } {
+					puts stderr "WEIRD DIST INFO: $distinfo"
+					break
+				}
+				set $dir $val
+			}
+		} elseif { $distinfo != "" } {
+			# we have "ahead/behind" val
+			set dir [lindex $distinfo 0]
+			if { $dir ni {ahead behind} } {
+				puts stderr "WEIRD DIST INFO: $distinfo"
+			}
+			set $dir [lindex $distinfo 1]
+		}
+		# Otherwise just leave ahead and behind empty
+
+
 		#puts stderr "*** DIST INFO: '$distinfo'"
 		# No, this must be exactly "..."
 		set sep ...
@@ -114,6 +139,14 @@ if { $hdx == "ref:" } {
 		if { $distinfo == "" } {
 			set distance "(= $remotebranch)"
 		} else {
+			set distance ""
+			if { $behind != "" } {
+				append distance " - $behind"
+			}
+			if { $ahead != "" } {
+				append distance " + $ahead"
+			}
+
 			set direction ?
 			switch -- [lindex $distinfo 0] {
 				ahead {
@@ -124,7 +157,7 @@ if { $hdx == "ref:" } {
 					set direction -
 				}
 			}
-			set distance "($remotebranch $direction [lindex $distinfo 1])"
+			set distance "($remotebranch $distance)"
 		}
 	}
 
