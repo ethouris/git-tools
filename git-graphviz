@@ -43,6 +43,10 @@ foreach {option default} $config {
 	puts stderr "OPTION: --$option [set ::$option]"
 }
 
+if { [info exists ::options(help)] || [info exists ::options(usage)]} {
+	exit 1
+}
+
 proc gethist {} {
 	return [exec git log -n $::limit "--pretty=format:%h %p" $::origin]
 }
@@ -102,7 +106,10 @@ foreach b [split [exec git branch {*}$branchoptions] \n] {
 	set fif [string index $b 0]
 	set name [string trim [string range $b 2 end]]
 
-	if { $name == "(no branch)" } {
+	# Don't rely on what's written in case of detached head.
+	# This changes from version to version. At least one thing
+	# is sure: it starts from open parenthesis.
+	if { [string index $name 0] == "(" } {
 		continue
 	}
 
