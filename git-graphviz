@@ -68,8 +68,8 @@ proc getinfo hash {
 		# This is a list-style, so split for " - " occurrences
 		set inf [string map {" - " \\n-\ } $inf]
 	} else {
-		# Replace dot with simply EOL
-		set inf [string map {". " \\n} $inf]
+		# Replace dot+space and semicolon+space with simply EOL
+		set inf [string map {". " \\n "; " \\n} $inf]
 	}
 
 	# Replace " * " with same with EOL

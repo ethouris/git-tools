@@ -129,8 +129,17 @@ if { $hdx == "ref:" } {
 		set sep ...
 		set pos [string first $sep $branchrange]
 		if { $pos == -1 } {
-			# Stupid fallback
-			set remotebranch $branchrange
+			# In earlier version of git (likely < 2.0), git status --short --branch
+			# doesn't show the remote branch. We need to extract this information differently.
+			set remotebranch REMOTE/$branchrange ;# fallback
+			set brinfo [exec git branch -vv]
+			if { [string range $brinfo 0 1] == "* " } {
+				set brinfo [lindex $brinfo 3]  ;# [REMOTE/BRANCH]
+				if { [string index $brinfo 0] == "\[" } {
+					set brinfo [string range $brinfo 1 end-1]
+				}
+				set remotebranch $brinfo
+			}
 		} else {
 			set remotebranch [string range $branchrange [expr {$pos+[string length $sep]}] end]
 		}
