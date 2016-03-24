@@ -43,7 +43,7 @@ foreach {option default} $config {
 	puts stderr "OPTION: --$option [set ::$option]"
 }
 
-if { [info exists ::options(help)] || [info exists ::options(usage)]} {
+if { [info exists ::options(help)] || [info exists ::options(usage)] || [info exists ::options(man)]} {
 	exit 1
 }
 

@@ -1,24 +1,39 @@
 #!/usr/bin/tclsh
 
-# First, get to the toplevel git dir
+set dirname [lindex $argv 0]
 
-set sub [exec git rev-parse --show-toplevel]
-cd $sub
+if { $dirname == "" } {
+
+# No name given - meaning you want to get pin of the submodule
+# that you have currently cd'd to.
+
+	# First, get to the toplevel git dir
+	set sub [exec git rev-parse --show-toplevel]
+	cd $sub
 
 # Now extract the exact name of the submodule view directory
-set dirname [lindex [file split [pwd]] end]
+	set dirname [lindex [file split [pwd]] end]
 
 # Ok, now go to the upper dir...
-cd ..
+	cd ..
 
 # and try again with git top. If fails, it's not a submodule.
 
-if { [catch {set top [exec git rev-parse --show-toplevel]} err] } {
-	puts stderr "Looxlike '$sub' is not a submodule directory"
-	puts stderr $err
-	exit 1
-}
+   if { [catch {set top [exec git rev-parse --show-toplevel]} err] } {
+   		puts stderr "Looxlike '$sub' is not a submodule directory"
+   		puts stderr $err
+   		exit 1
+   }
 
+} else {
+	if { [catch {set top [exec git rev-parse --show-toplevel]} err] } {
+		puts stderr "Looxlike [pwd] is not a git repo directory"
+		puts stderr $err
+		exit 1
+	}
+	# Make sure the path is clean
+	set dirname [file join {*}[file split $dirname]]
+}
 # Don't change dir to this dir though. Read from the current dir.
 
 set sublist [exec git ls-tree HEAD]
@@ -32,6 +47,6 @@ foreach l [split $sublist \n] {
 	}
 }
 
-puts stderr "WEIRD - '$dirname' not found in the tree list:\n$sublist"
+puts stderr "Note: '$dirname' not found in the tree list:\n$sublist"
 exit 1
 
