@@ -1,4 +1,4 @@
-#!/usr/bin/tclsh8.5
+#!/usr/bin/tclsh
 
 set top [exec git rev-parse --show-toplevel]
 set wd [pwd]

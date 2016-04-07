@@ -1,4 +1,4 @@
-#!/usr/bin/tclsh8.5
+#!/usr/bin/tclsh
 
 # The idea of git-sp is that:
 # - first argument is the original command of 'git subtree'
