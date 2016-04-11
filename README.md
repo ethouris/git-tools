@@ -3,17 +3,17 @@ Git Tools
 
 This is a set of useful commands to help with `git`.
 
-####  git-del <repo-file>
+####  git-del `<repo-file>`
 
 Alias to `git rm --cached`. Use that rather than `git rm`, which actually does `git rm --cached <repo-file> ; rm <repo-file>`.
 
-####  git-distill-patch <parent-branch> <patch-overlay-file>
+####  git-distill-patch `<parent-branch> <patch-overlay-file>`
 
 This is useful when you have some your own changes on the git repository view, which you'd like to preserve, but
 you want to share all other your changes with the upstream. This tool allows you to create a patch that contains
 all changes you have done in the repository, except the changes that you don't want to share. You have to make the
 repository view the state as equal to the parent branch with only your private changes applied, and you should create
-a PATCH file from the current state of differences. Save them into a file, which will be <patch-overlay-file>. Next
+a PATCH file from the current state of differences. Save them into a file, which will be `<patch-overlay-file>`. Next
 after you make extra changes, use git-distill-patch to create a patch containing all changes except those in the
 patch overlay file. The results will be still for you to check: `PATCH` file will contain the complete patch, while
 `PATCH.distilled` will contain the patch purged of your private changes. This script is only a forwarder, the whole
