@@ -54,6 +54,9 @@ of m/a/d/o/u must be present):
 * d: deleted files
 * o, u: other/untracked files
 
+Optional `s` or `v` limit the selection to files that have given status in the _stage_
+or _view_ respectively. Without this option it shows from both.
+
 Files displayed with -o option have no header and no extra information, this option is
 predicted to be used with additional pipe processing.
 
@@ -69,16 +72,19 @@ in loop, until the rebase states that there are no more conflicts.
 ####  git-sp
 
 This is a helper script for `git subtree`. It supplies automatically the --prefix option that
-`git subtree` normally requires. Useful only if you use `git subtree` tool.
+`git subtree` normally requires. Useful only if you use `git subtree` tool. The prefix is taken
+from the current directory. Note that `git subtree` requires that the current directory is the
+git toplevel directory.
 
 ####  git-top
 
 Returns the toplevel directory if the git view working directory.
 
-####  git-track
+####  git-track `?-n?` `<branch name>`
 
 Sets tracking for a remote branch. This is useful when you create a new branch and
-want it to be a public branch since the very beginning.
+want it to be a public branch since the very beginning. If this is a local branch
+only to be turned into a public branch, use `-n` option.
 
 ####  git-tripconfig
 
