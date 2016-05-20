@@ -50,6 +50,11 @@ foreach a $argv {
 
 set top [exec git rev-parse --show-toplevel]
 
+proc gethash_full ref {
+	return [exec git log -1 $ref --format=%H --]
+}
+
+
 set gitdir $top/.git
 
 if { [file isfile $gitdir] } {
@@ -81,6 +86,7 @@ if { $hdx == "ref:" } {
 		set hh ""
 		set hhs "<TO-BE-SET>"  ;# The initial case when HEAD does not exist
 	}
+	set hdx $hh
 
 	set distance " (distance not supported)"
 	# This is not supported up to git 1.7.1, just blindly try.
@@ -177,6 +183,27 @@ if { $hdx == "ref:" } {
 } else {
 	set branch "DETACHED: $hdx"
 	puts stderr "=$branch"
+}
+
+if { $hdx != "" } {
+	set seen_labs [exec git tag -l --contains $hdx]
+
+	# Git seems to have a bug that reports some labels that are not attached to that commit.
+	# For every label, check if the target of this label is this commit.
+	set labs ""
+
+	foreach l $seen_labs {
+		set h [gethash_full $l]
+		if { $h == $hdx } {
+			lappend labs $l
+		} else {
+			#puts stderr "=FALSE LABEL: '$l' really assigned to $h (not $hdx)"
+		}
+	}
+
+	if { $labs != "" } {
+		puts stderr "=LABELS: $labs"
+	}
 }
 
 }
