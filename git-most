@@ -54,6 +54,96 @@ proc gethash_full ref {
 	return [exec git log -1 $ref --format=%H --]
 }
 
+proc distance_to_remote {} {
+
+	# This is not supported up to git 1.7.1, just blindly try.
+	if { [catch {exec git status --short --branch} outlines] } {
+		return " (distance not supported)"
+	}
+
+	set line1 [lindex [split $outlines \n] 0]
+	#puts stderr "*** STATUSINFO: $line1"
+
+	set distoriginfo ""
+	set branchrange .WTF???
+	catch {set distoriginfo [lassign $line1 hashhash branchrange]}
+	# This stupid git must use [] dunno what for.
+	set p [string first "\[" $line1]
+	if { $p == -1 } {
+		set distinfo [join $distoriginfo " "]
+	} else {
+		set distinfo [string range $line1 $p+1 end-1]
+	}
+
+	set ahead ""
+	set behind ""
+	# Both can be found, unfortunately
+	if { [string first , $distinfo] != -1 } {
+		set parts [split $distinfo ,]
+		set one [string trim [lindex $parts 0]]
+		set two [string trim [lindex $parts 1]]
+		foreach {dir val} [concat $one $two] {
+			if { $dir ni {ahead behind} } {
+				puts stderr "WEIRD DIST INFO: $distinfo"
+				break
+			}
+			set $dir $val
+		}
+	} elseif { $distinfo != "" } {
+		# we have "ahead/behind" val
+		set dir [lindex $distinfo 0]
+		if { $dir ni {ahead behind} } {
+			puts stderr "WEIRD DIST INFO: $distinfo"
+		}
+		set $dir [lindex $distinfo 1]
+	}
+	# Otherwise just leave ahead and behind empty
+
+	#puts stderr "*** DIST INFO: '$distinfo'"
+	# No, this must be exactly "..."
+	set sep ...
+	set pos [string first $sep $branchrange]
+	if { $pos == -1 } {
+		# In earlier version of git (likely < 2.0), git status --short --branch
+		# doesn't show the remote branch. We need to extract this information differently.
+		set remotebranch REMOTE/$branchrange ;# fallback
+		set brinfo [exec git branch -vv]
+		if { [string range $brinfo 0 1] == "* " } {
+			set brinfo [lindex $brinfo 3]  ;# [REMOTE/BRANCH]
+			if { [string index $brinfo 0] == "\[" } {
+				set brinfo [string range $brinfo 1 end-1]
+			}
+			set remotebranch $brinfo
+		}
+	} else {
+		set remotebranch [string range $branchrange [expr {$pos+[string length $sep]}] end]
+	}
+	#puts stderr "*** REMOTE BRANCH: $remotebranch"
+
+	if { $distinfo == "" } {
+		set distance "(= $remotebranch)"
+	} else {
+		set distance ""
+		if { $behind != "" } {
+			append distance " - $behind"
+		}
+		if { $ahead != "" } {
+			append distance " + $ahead"
+		}
+
+		set direction ?
+		switch -- [lindex $distinfo 0] {
+			ahead {
+				set direction +
+			}
+
+			behind {
+				set direction -
+			}
+		}
+		set distance "($remotebranch $distance)"
+	}
+}
 
 set gitdir $top/.git
 
@@ -72,113 +162,30 @@ if { $hdx == "ref:" } {
 	if { [catch {set reponame [exec git config branch.$brname.remote]}] } {
 		set reponame ""
 	}
-	if { $reponame == "" } { 
-		set hosted "(LOCAL)"
-	} else { 
-		set repourl [exec git config remote.$reponame.url]
-		set hosted "$reponame ($repourl)"
-	}
 
 	if { ![catch {set hh [exec git show --format=format:%H HEAD]}] } {
 		set hh [lindex [split $hh \n] 0]
 		set hhs [string range $hh 0 7]
 	} else {
 		set hh ""
-		set hhs "<TO-BE-SET>"  ;# The initial case when HEAD does not exist
+		set hhs "NONE (nothing checked in yet)"  ;# The initial case when HEAD does not exist
 	}
 	set hdx $hh
+	set hosted ""
+	set distance " (LOCAL)"
 
-	set distance " (distance not supported)"
-	# This is not supported up to git 1.7.1, just blindly try.
-	if { ![catch {exec git status --short --branch} outlines] } {
-		set line1 [lindex [split $outlines \n] 0]
-		#puts stderr "*** STATUSINFO: $line1"
-		
-		set distoriginfo ""
-		set branchrange .WTF???
-		catch {set distoriginfo [lassign $line1 hashhash branchrange]}
-		# This stupid git must use [] dunno what for.
-		set p [string first "\[" $line1]
-		if { $p == -1 } {
-			set distinfo [join $distoriginfo " "]
-		} else {
-			set distinfo [string range $line1 $p+1 end-1]
-		}
-
-		set ahead ""
-		set behind ""
-		# Both can be found, unfortunately
-		if { [string first , $distinfo] != -1 } {
-			set parts [split $distinfo ,]
-			set one [string trim [lindex $parts 0]]
-			set two [string trim [lindex $parts 1]]
-			foreach {dir val} [concat $one $two] {
-				if { $dir ni {ahead behind} } {
-					puts stderr "WEIRD DIST INFO: $distinfo"
-					break
-				}
-				set $dir $val
-			}
-		} elseif { $distinfo != "" } {
-			# we have "ahead/behind" val
-			set dir [lindex $distinfo 0]
-			if { $dir ni {ahead behind} } {
-				puts stderr "WEIRD DIST INFO: $distinfo"
-			}
-			set $dir [lindex $distinfo 1]
-		}
-		# Otherwise just leave ahead and behind empty
-
-
-		#puts stderr "*** DIST INFO: '$distinfo'"
-		# No, this must be exactly "..."
-		set sep ...
-		set pos [string first $sep $branchrange]
-		if { $pos == -1 } {
-			# In earlier version of git (likely < 2.0), git status --short --branch
-			# doesn't show the remote branch. We need to extract this information differently.
-			set remotebranch REMOTE/$branchrange ;# fallback
-			set brinfo [exec git branch -vv]
-			if { [string range $brinfo 0 1] == "* " } {
-				set brinfo [lindex $brinfo 3]  ;# [REMOTE/BRANCH]
-				if { [string index $brinfo 0] == "\[" } {
-					set brinfo [string range $brinfo 1 end-1]
-				}
-				set remotebranch $brinfo
-			}
-		} else {
-			set remotebranch [string range $branchrange [expr {$pos+[string length $sep]}] end]
-		}
-		#puts stderr "*** REMOTE BRANCH: $remotebranch"
-
-		if { $distinfo == "" } {
-			set distance "(= $remotebranch)"
-		} else {
-			set distance ""
-			if { $behind != "" } {
-				append distance " - $behind"
-			}
-			if { $ahead != "" } {
-				append distance " + $ahead"
-			}
-
-			set direction ?
-			switch -- [lindex $distinfo 0] {
-				ahead {
-					set direction +
-				}
-
-				behind {
-					set direction -
-				}
-			}
-			set distance "($remotebranch $distance)"
-		}
+	# Display HOSTED and distance, if there is branch.<br>.remote.
+	if { $reponame != "" } { 
+		set repourl [exec git config remote.$reponame.url]
+		set hosted "$reponame ($repourl)"
+		set distance [distance_to_remote]
 	}
 
 	set branch "BRANCH: $brname $distance    OBJECT: $hhs"
-	set hosted "HOSTED: $hosted"
-	puts stderr "=$hosted"
+	if { $hosted != "" } {
+		set hosted "HOSTED: $hosted"
+		puts stderr "=$hosted"
+	}
 	puts stderr "=$branch"
 } else {
 	set branch "DETACHED: $hdx"
