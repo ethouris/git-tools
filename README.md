@@ -19,7 +19,7 @@ patch overlay file. The results will be still for you to check: `PATCH` file wil
 `PATCH.distilled` will contain the patch purged of your private changes. This script is only a forwarder, the whole
 job will be done by `patch-distill.tcl` script.
 
-####  git-getpin ?submodule-repo?
+####  git-getpin `?submodule-repo?`
 
 This returns the SHA1 code of the commit by which a submodule is pinned into the parent repository. Wihtout arguments
 it returns the pinned commit of the submodule that your current working directory points to. Optional argument is the
@@ -59,6 +59,18 @@ or _view_ respectively. Without this option it shows from both.
 
 Files displayed with -o option have no header and no extra information, this option is
 predicted to be used with additional pipe processing.
+
+####  git-new-workdir `<base-dir>` `<new-dir>` `?branch?`
+
+This is a copy of a git-new-workdir script taken from
+[Git contrib](https://github.com/git/git/tree/master/contrib/workdir). Placed here
+only for convenience.
+
+This script allows you to create a secondary view-stage pair connected to the same
+repository replica. It allows you to work on independent versions at a time using
+separate working directories, but using one replica storage. This can save your
+diskspace and time by not uselessly multiplying repository replicas on one disk,
+only to have multiple working directories.
 
 ####  git-prefix
 
@@ -100,3 +112,5 @@ for an instruction how to make this script handle your 'git difftool' calls.
 ####  patch-distill.tcl
 
 See git-distill-patch.
+
+
