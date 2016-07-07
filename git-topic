@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function bailout()
+{
+	echo "This is not a git view directory."; exit 1
+}
+
+function norepoinfo()
+{
+	echo "Not a repository"; exit 0
+}
+
+if [[ $1 == "-q" ]]; then
+	TOP=`git top 2>/dev/null` || norepoinfo
+	shift
+else
+TOP=`git top` || bailout $?
+fi
+
+FOUND=""
+
+if [[ -f $TOP/TOPIC ]]; then
+	FONUD=$TOP/TOPIC
+elif [[ -f $TOP/.topic ]]; then
+	FOUND=$TOP/.topic
+fi
+
+MSG="$@"
+
+if [[ $MSG == "" ]]; then
+	if [[ $FOUND != "" ]]; then
+		cat $FOUND
+		exit 0
+	else
+		echo "No topic for `basename $TOP`. Please write something to TOPIC or .topic"
+		exit 1
+	fi
+fi
+
+# Set new topic
+
+# If no topic file found, use $TOP/TOPIC. Otherwise rewrite the already existing TOPIC file.
+if [[ $FOUND == "" ]]; then
+	FOUND=$TOP/TOPIC
+fi
+
+if [[ -f $FOUND ]]; then
+	mv $FOUND $TOP/.topic.old
+fi
+
+echo "$MSG" >$FOUND
+
+echo "New topic: $MSG"
+
+
