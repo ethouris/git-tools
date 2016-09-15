@@ -1,55 +1,44 @@
-#!/bin/bash
+#!/usr/bin/tclsh
 
-function bailout()
-{
-	echo "This is not a git view directory."; exit 1
+if { [catch {exec git rev-parse --show-toplevel} toplevel] } {
+	puts "git-topic: Not in a git repository"
+	exit 1
 }
 
-function norepoinfo()
-{
-	echo "Not a repository"; exit 0
-}
+# Search for files: .gittopic, .topic, TOPIC
+# If begins with [...] then this holds the branch name.
 
-if [[ $1 == "-q" ]]; then
-	TOP=`git top 2>/dev/null` || norepoinfo
-	shift
-else
-TOP=`git top` || bailout $?
-fi
+set names {.gittopic .topic TOPIC}
 
-FOUND=""
-
-if [[ -f $TOP/TOPIC ]]; then
-	FONUD=$TOP/TOPIC
-elif [[ -f $TOP/.topic ]]; then
-	FOUND=$TOP/.topic
-fi
-
-MSG="$@"
-
-if [[ $MSG == "" ]]; then
-	if [[ $FOUND != "" ]]; then
-		cat $FOUND
+foreach n $names {
+	if { [file exists $n] } {
+		# Load topic
+		set fd [open $n r]
+		while { [gets $fd line] != -1} {
+			set line [string trim $line]
+			if { [string index $line 0] == "\[" } {
+				set e [string first "\]" $line]
+				if { $e == -1 } {
+					puts "($n: invalid syntax)"
+					exit 1
+				}
+				set brname [string range $line 1 $e-1]
+				set toptext([string trim $brname]) [string trim [string range $line $e+1 end]]
+			} else {
+				set toptext(default) $line
+			}
+		}
+		close $fd
+		set curbr [exec git branch | grep ^* | cut -c 3-]
+		if { [info exists toptext($curbr)] } {
+			puts $toptext($curbr)
+		} elseif { [info exists toptext(default)] } {
+			puts $toptext(default)
+		} else {
+			puts "No topic for $curbr"
+		}
 		exit 0
-	else
-		echo "No topic for `basename $TOP`. Please write something to TOPIC or .topic"
-		exit 1
-	fi
-fi
+	}
+}
 
-# Set new topic
-
-# If no topic file found, use $TOP/TOPIC. Otherwise rewrite the already existing TOPIC file.
-if [[ $FOUND == "" ]]; then
-	FOUND=$TOP/TOPIC
-fi
-
-if [[ -f $FOUND ]]; then
-	mv $FOUND $TOP/.topic.old
-fi
-
-echo "$MSG" >$FOUND
-
-echo "New topic: $MSG"
-
-
+puts "No topic file found ($names)"

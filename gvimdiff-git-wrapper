@@ -23,8 +23,12 @@
 
 proc getpath arg { return $arg }
 
+proc istemp {arg} {
+	return [expr {[string range $arg 0 3] == "/tmp"}]
+}
+
 if { [catch {exec uname -o} osname] } {
-	set osname unknown
+	set osname $tcl_platform(os)
 }
 
 if { [info exists env(DISPLAY)] } {
@@ -36,6 +40,24 @@ if { [info exists env(DISPLAY)] } {
 	}
 	rename getpath ""
 	proc getpath arg { return [exec cygpath -w $arg] }
+} elseif { $osname == "Windows" } {
+	set vim gvim.bat
+	rename istemp ""
+	proc istemp {arg} {
+
+		if { [info exists ::env(TEMP)] } {
+			set tmpdir [string tolower $::env(TEMP)]
+			set thispath [string tolower [file nativename $arg]]
+			if { [string first $tmpdir $thispath] == 0 } {
+				return true
+			}
+			return false
+		}
+
+		# Fall back to checking if the path starts from X:\temp
+		# Path is always absolute, so the first two will be V: / NNN
+		return [expr {[string tolower [lindex [file split $arg] 2]] == "temp"}]
+	}
 } else {
 	set vim vim
 }
@@ -149,7 +171,14 @@ foreach mask $skipfiles {
 puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
 # This call to 'diff' ignores differences caused by Windows EOLs.
 if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
-	exec >@stdout {*}$vim -d [getpath $older] [getpath $newer]
+
+	set oldpath [getpath $older]
+	set setro "{+1windo setlocal ro}" ;# Double container so that {*} will expand to no argument or enclosed argument
+	if { ![istemp $oldpath] } {
+		set setro ""
+	}
+
+	exec >@stdout {*}$vim -d [getpath $older] [getpath $newer] {*}$setro
 } else {
 	puts " --- files '$older' and '$newer' don't differ!"
 }
