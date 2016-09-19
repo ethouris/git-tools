@@ -11,9 +11,10 @@ if { [catch {exec git rev-parse --show-toplevel} toplevel] } {
 set names {.gittopic .topic TOPIC}
 
 foreach n $names {
-	if { [file exists $n] } {
+	set fn [file join $toplevel $n]
+	if { [file exists $fn] } {
 		# Load topic
-		set fd [open $n r]
+		set fd [open $fn r]
 		while { [gets $fd line] != -1} {
 			set line [string trim $line]
 			if { [string index $line 0] == "\[" } {
