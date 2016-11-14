@@ -5,23 +5,30 @@ This is a set of useful commands to help with `git`.
 
 ####  git-del `<repo-file>`
 
-Alias to `git rm --cached`. Use that rather than `git rm`, which actually does `git rm --cached <repo-file> ; rm <repo-file>`.
+This deletes the file from the repository - that is, from the working directory perspective it turns the in-repo
+file into a private file. Unlike `git rm`, the file isn't removed from the directory.
+
+This is actually an alias to `git rm --cached`. The usual `git rm X` should be treated as `git del X; rm X`.
 
 ####  git-distill-patch `<parent-branch> <patch-overlay-file>`
 
 This is useful when you have some your own changes on the git repository view, which you'd like to preserve, but
-you want to share all other your changes with the upstream. This tool allows you to create a patch that contains
-all changes you have done in the repository, except the changes that you don't want to share. You have to make the
-repository view the state as equal to the parent branch with only your private changes applied, and you should create
-a PATCH file from the current state of differences. Save them into a file, which will be `<patch-overlay-file>`. Next
-after you make extra changes, use git-distill-patch to create a patch containing all changes except those in the
-patch overlay file. The results will be still for you to check: `PATCH` file will contain the complete patch, while
-`PATCH.distilled` will contain the patch purged of your private changes. This script is only a forwarder, the whole
-job will be done by `patch-distill.tcl` script.
+you want to share all other your changes with the upstream.
+
+To use it, you should first make those non-shareable changes **only** in the
+repository, then create a patch out of the current set of changes and save it
+as `<patch-overlay-file>`. Since now your "private changes" are locked in this
+file. After you made then changes that you'd like to share, use
+`git-distill-patch` to create a patch containing all changes except those in
+the patch overlay file. The results will be still for you to check: `PATCH`
+file will contain the complete patch, while `PATCH.distilled` will contain the
+patch purged of your private changes (as defined in `<patch-overlay-file>`).
+This script is only a forwarder, the whole job will be done by
+`patch-distill.tcl` script.
 
 ####  git-getpin `?submodule-repo?`
 
-This returns the SHA1 code of the commit by which a submodule is pinned into the parent repository. Wihtout arguments
+This returns the SHA1 code of the commit by which a submodule is pinned into the parent repository. Without arguments
 it returns the pinned commit of the submodule that your current working directory points to. Optional argument is the
 path to the submodule repository. This is useful to check if the current __checkedout__ version of the submodule is
 the same as the __pinned__ version in the parent repository. If they differ, it usually means that you should either
@@ -55,7 +62,8 @@ of m/a/d/o/u must be present):
 * o, u: other/untracked files
 
 Optional `s` or `v` limit the selection to files that have given status in the _stage_
-or _view_ respectively. Without this option it shows from both.
+or _view_ respectively. Without this option it shows from both. Note of course that
+for state options `o`/`u` the `s` or `v` selection is ignored.
 
 Files displayed with -o option have no header and no extra information, this option is
 predicted to be used with additional pipe processing.
@@ -90,13 +98,14 @@ git toplevel directory.
 
 ####  git-top
 
-Returns the toplevel directory if the git view working directory.
+Returns the toplevel directory if the current directory is inside a git view working directory.
 
 ####  git-track `?-n?` `<branch name>`
 
 Sets tracking for a remote branch. This is useful when you create a new branch and
 want it to be a public branch since the very beginning. If this is a local branch
-only to be turned into a public branch, use `-n` option.
+only to be turned into a public branch, use `-n` option (otherwise it creates a local
+branch tracked to a public branch).
 
 ####  git-tripconfig
 
