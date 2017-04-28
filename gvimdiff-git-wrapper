@@ -104,7 +104,7 @@ if { $older == "/dev/null" } {
 
 	if { $ftype == "file" } {
 	
-		ask "NEW: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
+		ask "ADDED: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
 		switch -- [answer] {
 			e {
 				exec >@stdout {*}$vim [getpath $fname]
@@ -115,7 +115,7 @@ if { $older == "/dev/null" } {
 		}
 	} else {
 		# For other types offer just deletion
-		ask "NEW: $ftype '$fname'  (s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[S/d\] "
+		ask "ADDED: $ftype '$fname'  (s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[S/d\] "
 		if { [answer] == "d" } {
 			exec >@stdout git rm --cached [getpath $fname]
 		}
