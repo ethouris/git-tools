@@ -156,7 +156,9 @@ if { $only == "" } {
 
 lassign [exec cat $gitdir/HEAD] hdx path
 if { $hdx == "ref:" } {
-	set brname [file tail $path]
+	set parts [file split $path]
+	# Skip refs/heads or whatever...
+	set brname [file join {*}[lrange $parts 2 end]]
 
 	# Find the branch in the configuration
 	if { [catch {set reponame [exec git config branch.$brname.remote]}] } {

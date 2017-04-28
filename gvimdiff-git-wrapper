@@ -31,7 +31,12 @@ if { [catch {exec uname -o} osname] } {
 	set osname $tcl_platform(os)
 }
 
-if { [info exists env(DISPLAY)] } {
+if { [info exists env(GVIM)] } {
+	set vim $env(GVIM)
+	if { [llength $vim] == 1 } {
+		set vim "$vim -f"
+	}
+} elseif { [info exists env(DISPLAY)] } {
 	set vim "gvim -f"
 } elseif { $osname == "Cygwin" && [info exists env(VIMPATH)]} {
 	set vim $env(VIMPATH)
@@ -107,10 +112,10 @@ if { $older == "/dev/null" } {
 		ask "ADDED: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
 		switch -- [answer] {
 			e {
-				exec >@stdout {*}$vim [getpath $fname]
+				exec >@stdout 2>@stderr {*}$vim [getpath $fname]
 			}
 			d {
-				exec >@stdout git rm --cached [getpath $fname]
+				exec >@stdout 2>@stderr git rm --cached [getpath $fname]
 			}
 		}
 	} else {
@@ -139,7 +144,7 @@ if { $newer == "/dev/null" } {
 	ask "DELETED:  '$base' (e)dit as new/(s)kip/(r)estore in the repo \[e/S/r\] "
     switch -- [answer] {
 		e {
-			exec >@stdout {*}$vim -d [getpath $older] [getpath $base]
+			exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $base]
 		}
 
 		r {
@@ -178,7 +183,7 @@ if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 		set setro ""
 	}
 
-	exec >@stdout {*}$vim -d [getpath $older] [getpath $newer] {*}$setro
+	exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $newer] {*}$setro
 } else {
 	puts " --- files '$older' and '$newer' don't differ!"
 }

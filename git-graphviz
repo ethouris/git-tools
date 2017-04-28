@@ -12,6 +12,16 @@ set config {
 	origin --all
 }
 
+set default ""
+proc default opt {
+	variable default
+	if { $opt in $default } {
+		return true
+	}
+
+	return false
+}
+
 set la ""
 set ia ""
 foreach val $argv {
@@ -38,6 +48,7 @@ foreach {option default} $config {
 		set ::$option $::options($option)
 	} else {
 		set ::$option $default
+		lappend default $option
 	}
 	
 	puts stderr "OPTION: --$option [set ::$option]"
@@ -387,13 +398,20 @@ close $ofile
 
 if { $format == "dot" } {
 	puts stderr "not drawing picture - find dot file in /tmp/$filetemplate.dot"
-	exit 0
+	
+	if { [default viewer] } {
+		puts stderr "Default viewer not suitable to view DOT format (recommended: kgraphviewer). Exitting."
+		exit 0
+	}
+
+} else {
+
+	puts -nonewline stderr "drawing diagram picture... "
+
+	exec >@stdout 2>@stderr dot /tmp/$filetemplate.dot -T$::format -o /tmp/$filetemplate.$::format
+
+	puts stderr done.
+
 }
 
-puts -nonewline stderr "drawing diagram picture... "
-
-exec >@stdout 2>@stderr dot /tmp/$filetemplate.dot -T$::format -o /tmp/$filetemplate.$::format
-
-puts stderr done.
-
-exec >@stdout 2>@stderr $viewer /tmp/$filetemplate.$::format &
+exec >@stdout 2>@stderr {*}$viewer /tmp/$filetemplate.$::format &
