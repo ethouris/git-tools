@@ -23,7 +23,7 @@ foreach i $confitems {
 
 	# Fix the path if there's something quite wrong
 	set first [lindex $dictpath 0]
-	if { $first in {branch remote} } {
+	if { $first in {branch remote submodule} } {
 		# Take care of that there are exactly THREE elements.
 		# If there are more than three, it means that some inside contained a dot.
 		if { [llength $dictpath] > 3 } {
@@ -34,7 +34,7 @@ foreach i $confitems {
 	}
 
 	dict set config {*}$dictpath $value
-	#puts [file join {*}$dictpath]=$value
+	#puts "\[[join $dictpath {]/[}]\] = $value"
 }
 
 proc normalize v {
