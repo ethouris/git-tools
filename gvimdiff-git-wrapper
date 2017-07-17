@@ -185,5 +185,33 @@ if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 
 	exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $newer] {*}$setro
 } else {
-	puts " --- files '$older' and '$newer' don't differ!"
+	puts " --- Diff reported no differences in file contents;"
+
+	set maxlen [expr {max([string length $older],[string length $newer])}]
+
+	set oxspace [string repeat " " [expr {$maxlen - [string length $older]}]]
+	set nxspace [string repeat " " [expr {$maxlen - [string length $newer]}]]
+
+	set any no
+	# Try to extract extra info about the differences:
+	# 1. Maybe they have different rights?
+	set oattr [file attributes $older]
+	set nattr [file attributes $newer]
+	if { $oattr != $nattr } {
+		puts " --- Attributes differ:\n\t$oxspace$older: $oattr\n\t$nxspace$newer: $nattr"
+		set any yes
+	}
+
+	#2. Maybe they are text files and have different EOLS?
+	# Extract the 'file' report and present it (it will show the differences)
+	set ofile [exec file -b $older]
+	set nfile [exec file -b $newer]
+	if { $ofile != $nfile } {
+		puts " --- Magic recognition differ:\n\t$oxspace$older: $ofile\n\t$nxspace$newer: $nfile"
+		set any yes
+	}
+
+	if { !$any } {
+		puts " --- and no reason for difference found."
+	}
 }
