@@ -1,0 +1,69 @@
+#!/usr/bin/tclsh
+
+lassign $argv point top
+
+if { $point == "" || $point == "." } {
+	set point HEAD
+}
+
+if { $top == "" } {
+	set this [exec git rev-parse $point]
+
+	# Now extract the reflog information from this commit
+	# There can be multiple lines of it, if the commit belonged
+	# to multiple branches at a time.
+
+	set lines [exec git reflog show {--format=%H %gd} --all | grep $this]
+
+	if { $lines == "" } {
+		puts stderr "Can't extract current reflog, unknown where the top can be. Please specify toplevel."
+		exit 1
+	}
+
+	#puts stderr "REFLOG:\n$lines"
+
+	set brdata ""
+	foreach l [split $lines \n] {
+		#puts stderr "Line: '$l'"
+
+		# Skip the first word, it's the searched hash-pointer.
+		set l [lindex $l 1]
+		# This is a reflog info. Let's extract each one.
+		set left [split $l "@"]
+
+		set br [lindex $left 0]
+		set ver [string range [lindex $left 1] 1 end-1]
+
+		dict set brdata $br $ver
+	}
+	#puts stderr "COLLECTED: $brdata"
+
+	set branches [dict keys $brdata]
+
+	if { [llength $branches] != 1 } {
+		# Try to extract the current branch and select this one
+		set brl [exec git branch | grep {^*}]
+		set br [string range $brl 2 end]
+		if { [string index $br 0] == "(" } {
+			# detached.
+			puts stderr "Can't extract the toplevel by branchname from reflog nor current branch. Please select one of:"
+			foreach b $branches {
+				puts stderr $b
+			}
+			exit 1
+		} else {
+			set top $br
+		}
+	} else {
+		set top [lindex $branches 0]
+	}
+	
+}
+
+set list [exec git rev-list --ancestry-path $point..$top]
+
+# Our child is at the bottom of the list
+set last [lindex [split $list \n] end]
+
+puts $last
+
