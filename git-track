@@ -35,7 +35,11 @@ if { $br == "" } {
 		}
 	}
 
-	set br "-l $cur"
+	if { $new } {
+		set br $cur
+	} else {
+		set br "-l $cur"
+	}
 }
 
 set bi [lindex $br 0]
