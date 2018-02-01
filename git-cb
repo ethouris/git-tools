@@ -1,167 +1,185 @@
-#!/bin/bash
+#!/usr/bin/tclsh
 
-THISBR=`git branch --no-color --list | grep ^* | cut -c 3- `
-BRLIST=`git branch --no-color --list | grep -v ^* | cut -c 3- `
-REMOTES=`git branch -r --no-color --list | grep -v HEAD | cut -c 3-`
+package require Tcl 8.5
 
-BREQ=$1
-shift
+set thisbr ""
+set brlist "" ;# others only
+set remote_brlist "" ;# remote branches only
+set remotes [join [exec git remote] " "]
 
-if [[ -z $BREQ ]]; then
-	echo $THISBR
+foreach br [split [exec git branch --no-color --list -a] \n] {
+	# Skip pointing branches
+	if { [string first " -> " $br] != -1 } {
+		continue
+	}
+
+	# Check if a branch contains multiple components
+	set parts [file split $br]
+
+	if { [llength $parts] > 1 } {
+		# Remote branch, probably, notify it as remote.
+
+		#puts "*D* REMOTE: '$br'"
+
+		# Trim required because the branch is preceded by 2 spaces.
+		if { [string trim [lindex $parts 0]] != "remote" } {
+			continue ;# XXX report error?
+		}
+
+		lappend remote_brlist [file join {*}[lrange $parts 1 end]]
+		continue
+	}
+
+	if { [string index $br 0] == "*" } {
+		set thisbr [string range $br 2 end]
+	} else {
+		lappend brlist [string range $br 2 end]
+	}
+}
+
+set breq [lindex $argv 0]
+
+if { $breq == "" } {
+	puts $thisbr
 	exit 0
-fi
+}
 
-if [[ $BREQ == "-l" ]]; then
-	# Local branches have just single names,
-	# mark them with initial / for highlighting.
+if { $breq == "-l" } {
 
-	TRACKED=
+	# Look through all local branches (brlist)
+	# and display:
+	# - if only local, /BRANCH
+	# - if remote with identical name, REMOTE/BRANCH
+	# - if remote with different name: /BRANCH = REMOTE/RBRANCH
 
-	for i in $BRLIST; do
-		REMO=`git config --get branch.$i.remote`
-		if [[ -n $REMO ]]; then
-			BRHEAD=`git config --get branch.$i.merge`
-			B=${BRHEAD#*/} ;# Skip "refs/"
-			B=${B#*/}      ;# Skip "heads/"
-			B=$REMO/$B
-			echo "/$i -> $B"
-			TRACKED+=" $B"
-		else
-			echo "/$i (LOCAL)"
-		fi
-	done
+	foreach br $brlist {
+		if { [catch {exec git config --get branch.$br.remote} remote] } {
+			# This branch has no remote-tracking.
+			puts "/$br (LOCAL)"
+			continue
+		}
 
-	#echo "TRACKED: $TRACKED"
-	#echo "REMOTES: $REMOTES"
-	
-	for i in $REMOTES; do
-		if [[ $TRACKED == *$i* ]]; then
-			: ; #echo "(not displaying $i)"
-		else
-			echo $i
-		fi
-	done
+		set brhead [exec git config --get branch.$br.merge]
+
+		# brhead = refs/heads/BRANCHNAME
+		set parts [file split $brhead]
+
+		if {[lrange $parts 0 1] != {refs heads}} {
+			continue; #error?
+		}
+
+		set rbranch [file join [lrange $parts 2 end]]
+		if { $rbranch == $br } {
+			puts "$remote/$br"
+		} else {
+			puts "/$br = $remote/$rbranch"
+		}
+	}
+
 	exit 0
-fi
+}
 
-if [[ ${BREQ:0:1} == "/" ]]; then
-	BREQ=${BREQ:1}
-fi
 
-REMO=$1
-LOCAL=1
+# Check if this branch name is currently projected,
+# no matter any further settings.
 
-if [[ ${REMO:0:1} == "=" ]]; then
-	REMO=${REMO:1}
-	shift
-
-	# Split REMO into remote name and original brach name
-	if [[ $REMO == */* ]]; then
-		BSRC=${REMO#*/}
-		REMO=${REMO%/*}
-	else
-		BSRC=$BREQ
-	fi
-	LOCAL=0
-else
-	REMO=""
-fi
-
-OPTIONS="$@"
-
-if [[ $BREQ == $THISBR ]]; then
-	echo >&2 "This branch is currently projected in the view."
+if { $breq == $thisbr } {
+	puts stderr "This branch is currently projected in your view"
 	exit 1
-fi
+}
 
-for b in $BRLIST; do
+# Purpose of this tool.
+#
+# 1. Switch the view to the given branch name.
+# 2. Branch should be created if doesn't exist.
+# 3. If a remote is specified, the branch should be remote-tracking.
+# 4. If a remote branch of given name exists, it should be simply bound.
+# 5. If a remote branch doesn't exist, an entry should be added for tracking so that it's made remote.
 
-	if [[ $BREQ == $b ]]; then
-		git checkout $b $OPTIONS
-		RET=$?
-		if (($RET == 0)); then
-			echo >&2 "Git successfully set current branch as: $b"
-			exit 0
-		fi
-		echo >&2 "Git FAILED to switch the branch to: $b"
-		exit 1
-	fi
+# Possible call syntax:
 
-done
+# FIRST ARGUMENT: branch name. This branch must be set to the view,
+# and created if it doesn't exist. Beside this:
 
-# If single = was added at the end, then it's remote with autoselection
-# If no such sign, it's local
-if (($LOCAL)); then
+# git cb dev-fix-error
+#  -- Create local branch.
+#
+# git cb dev-fix-error =
+#  -- Create a remote-tracking branch from a default remote (origin)
+#
+# git cb dev-fix-error remo1
+#  -- Create a remote-tracking brach on a given remote
+#
+# git cb dev-fix-error remo1/fix-error
+#  -- Create a remote-tracking branch on given remote pinned into given remote branch name
+#
+# git cb dev-fix-error =/fix-error
+#  -- Default remote, use different branch name
 
-	# Loop only for warning check.
-	for b in $REMOTES; do
-		
-		#Check if the name after /
-		if [[ $b == */$BREQ ]]; then
-			echo >&2 "ERROR: There's already a remote branch: $b, name $BREQ should not be used"
+if { $breq in $brlist } {
+	# Simply switch and do nothing else
+	puts "Existing branch, switching."
+	exec >@stdout 2>@stderr git checkout $breq
+	exit 0
+}
+
+set remo [lindex $argv 1]
+
+if { $remo == "" } {
+	# Local
+	# Check if there isn't a remote branch with this name,
+	# it might be confusing.
+
+	foreach r $remote_brlist {
+		set rbr [file join {*}[lassign [file split $r] remo]]
+		if {$breq == $rbr} {
+			puts stderr "Already exists as '$r', can be confusing. Use another name."
 			exit 1
-		fi
-	done
+		}
+	}
 
-	echo >&2 "Creating and switching to LOCAL branch: $BREQ"
-	git checkout -b $BREQ
-	exit $?
-fi
+	puts "Creating this branch as local."
+	exec 2>@stderr >@stdout git checkout -b $breq
+	exit 0
+}
 
-# Not in brlist, so check remotes
-# If you have specified the foreign branch explicitly, follow this
+set rparts [lassign [file split $remo] remo]
 
-if [[ $REMO != "" ]]; then
+if {$rparts == ""} {
+	set remobr ""
+} else {
+	set remobr [file join {*}$rparts]
+}
 
-	for b in $REMOTES; do
-		if [[ $b == $REMO/$BSRC ]]; then
-			# Found the remote branch as required.
-			# Create the local branch link to the remote branch
-			git branch $BREQ -u $b
-			RET=$?
-			if (($RET != 0)); then
-				echo >&2 "Error creating branch - leaving in current state"
-				exit 1
-			fi
-			git checkout $BREQ
-			RET=$?
-			if (($RET == 0)); then
-				echo >&2 "Created and switched to branch: $BREQ = $b"
-				exit 1
-			fi
-			exit 0
-		fi
-	done
+if { $remo == "=" } {
+	set remo origin
+}
 
-	# If there's no such remote branch, then create the branch
-	# and set the upstream (it was requested because the remote
-	# was specified).
+if { $remobr == "" } {
+	set remobr $breq
+}
 
-	git branch -f $BREQ $OPTIONS
-	RET=$?
-	if (($RET != 0)); then 
-		echo "Branch creation failed"; exit 1
-	fi
-	git config branch.$BREQ.remote $REMO
-	git config branch.$BREQ.merge refs/heads/$BSRC
-	git checkout $BREQ
-	exit $?
-fi
+# We request now the branch to track the local branch.
+# First check if the branch was requested as remote tracked.
 
-# If the remote wasn't specified, then find this name among
-# the remote branches as a branch name
+if {"$remo/$remobr" in $remote_brlist} {
+	# Easy. Create assignment
 
-for b in $REMOTES; do
-	
-	#Check if the name after /
-	if [[ $b =~ [^/]*/$BREQ ]]; then
-		
-		# If this name found, import the branch
-		git branch $BREQ -u $b || { echo >&2 "Error creating branch - leaving in current state"; exit 1 }
-		git checkout $BREQ  && echo >&2 "Created and switched to branch: $BREQ = $b"
-	fi
-done
+	puts "Remote branch exists. Creating and assigning."
+	exec >@stdout git branch --track $breq $remo/$remobr
 
-echo >&2 "Branch name not found among remotes: $BREQ"
+} else {
+	exec >@stdout git branch $breq
+	exec >@stdout git config branch.$breq.remote $remo
+	exec >@stdout git config branch.$breq.merge refs/heads/$remobr
+
+	puts "No remote branch - will be remote-created at first push (please ignore git complaints)"
+}
+
+if { [catch {exec >@stdout 2>@stderr git checkout -f $breq} result] } {
+	puts "Git complaints: $errorInfo"
+	puts $result
+}
+exit 0
+
 
