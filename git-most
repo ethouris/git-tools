@@ -9,6 +9,11 @@ if { "-l" in $argv } {
 	set screwpath 0
 }
 
+set explain 0
+if { "-h" in $argv } {
+	set explain 1
+}
+
 set git_options "--porcelain"
 
 set only ""
@@ -22,12 +27,14 @@ if { $onlyopt != "" } {
 			m { set only mod }
 			a { set only add }
 			d { set only del }
-			o { set only ??? }
-			u { set only ??? }
+			o { set only prv }
+			u { set only prv }
+			g { set only umg }
+			i { set only ign }
 			s { set onlyin stage; set oo [string range $oo 1 end]; continue }
 			v { set onlyin view; set oo [string range $oo 1 end]; continue }
 			default {
-				puts stderr "Incorrect -o (only) option: use one of: m, a, d, o, s, v"
+				puts stderr "Incorrect -o (only) option: use one of: m, a, d, o, u, g, i, s, v"
 				exit 1
 			}
 		}
@@ -36,7 +43,7 @@ if { $onlyopt != "" } {
 }
 
 # Show untacked (also if untracked-only)
-if { "-u" ni $argv && $only != "???" } {
+if { "-u" ni $argv && $only != "prv" } {
 	lappend git_options -uno
 }
 
@@ -268,13 +275,28 @@ set sigmap {
 	A add
 	R ren
 	C cpy
-	U upd
+	U umg
 	D del
+	T typ
+	? prv
+	! ign
 	" " ---
-	? ???
+}
+
+set helpmap {
+	mod "Modified in "
+	add "Added to "
+	ren "Renamed in "
+	cpy "Copied in "
+	umg "Updated, but not merged"
+	del "Deleted in "
+	typ "Changed type in "
+	prv "Not under version control"
+	ign "Found in ignore list"
 }
 
 array set sig $sigmap
+array set hlp $helpmap
 
 proc screw path {
 	if { !$::screwpath } {
@@ -283,6 +305,17 @@ proc screw path {
 		return [localize [pwd] [file join $::top $path]]
 	} else { ;# global
 		return [file join $::top $path]
+	}
+}
+
+proc get_help {type container} {
+	global hlp
+	if { [info exists hlp($type)] } {
+		set h $hlp($type)
+		if { [string index $h end] == " " } {
+			return "$h$container"
+		}
+		return $h
 	}
 }
 
@@ -307,6 +340,18 @@ foreach ln [split $porc \n] {
 	if { [info exists sig($istage)] } {
 		set sig_stage $sig($istage)
 	}
+	set help_ext ""
+	if { $explain } {
+		set help_view [get_help $sig_view view]
+		set help_stage [get_help $sig_stage stage]
+		if {$help_view != "" || $help_stage != ""} {
+			set help_ext "($help_view"
+			if {$help_ext != "(" && $help_stage != ""} {
+				append help_ext ", "
+			}
+			append help_ext $help_stage)
+		}
+	}
 
 	if { $onlyin == "view" } {
 		set onlywanted { $sig_view == $only }
@@ -317,7 +362,7 @@ foreach ln [split $porc \n] {
 	}
 
 	if { $only == "" } {
-		puts " $sig_stage $sig_view $pathline"
+		puts " $sig_stage $sig_view $pathline $help_ext"
 	} elseif $onlywanted {
 		puts $pathline
 	}
