@@ -155,6 +155,14 @@ if { $remo == "=" } {
 	set remo origin
 }
 
+set all_remos [exec git remote]
+
+if { $remo ni $all_remos } {
+	puts stderr "ERROR: No such remote '$remo'. Use = as alias to origin. Available remotes:"
+	puts stderr $all_remos
+	exit 1
+}
+
 if { $remobr == "" } {
 	set remobr $breq
 }
@@ -176,7 +184,16 @@ if {"$remo/$remobr" in $remote_brlist} {
 	puts "No remote branch - will be remote-created at first push (please ignore git complaints)"
 }
 
-if { [catch {exec >@stdout 2>@stderr git checkout -f $breq} result] } {
+set checkedout [exec git status -s -uno]
+
+if {$checkedout != ""} {
+	puts "NOTE: You have checkedout files, NOT CHECKING OUT branch."
+	puts "NOTE: Make sure that the repo state matches your needs, then do:"
+	puts "\tgit checkout $breq"
+	exit 1
+}
+
+if { [catch {exec >@stdout 2>@stderr git checkout $breq} result] } {
 	puts "Git complaints: $errorInfo"
 	puts $result
 }

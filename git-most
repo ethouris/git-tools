@@ -79,6 +79,7 @@ proc distance_to_remote {} {
 	if { $p == -1 } {
 		set distinfo [join $distoriginfo " "]
 	} else {
+		# Strip [...]
 		set distinfo [string range $line1 $p+1 end-1]
 	}
 
@@ -91,11 +92,14 @@ proc distance_to_remote {} {
 		set two [string trim [lindex $parts 1]]
 		foreach {dir val} [concat $one $two] {
 			if { $dir ni {ahead behind} } {
-				puts stderr "WEIRD DIST INFO: $distinfo"
+				puts stderr "INVALID DIST INFO: $distinfo"
 				break
 			}
 			set $dir $val
 		}
+    } elseif { $distinfo == "gone" } {
+		set ahead gone
+		set behind gone
 	} elseif { $distinfo != "" } {
 		# we have "ahead/behind" val
 		set dir [lindex $distinfo 0]
@@ -129,6 +133,8 @@ proc distance_to_remote {} {
 
 	if { $distinfo == "" } {
 		set distance "(= $remotebranch)"
+    } elseif { $distinfo == "gone" } {
+		set distance "(NOT IN REMOTE)"
 	} else {
 		set distance ""
 		if { $behind != "" } {

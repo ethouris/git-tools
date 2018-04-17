@@ -1,6 +1,27 @@
 #!/usr/bin/tclsh
 
+set silent no
+
+# Strip options and args
+
+set options ""
+set args ""
+foreach a $argv {
+	if { [string index $a 0] == "-" } {
+		lappend options $a
+	} else {
+		lappend args $a
+	}
+}
+
+if { "-s" in $options } {
+	set silent yes
+}
+
 if { [catch {exec git rev-parse --show-toplevel} toplevel] } {
+	if { $silent } {
+		exit 0
+	}
 	puts "git-topic: Not in a git repository"
 	exit 1
 }
@@ -9,37 +30,143 @@ if { [catch {exec git rev-parse --show-toplevel} toplevel] } {
 # If begins with [...] then this holds the branch name.
 
 set names {.gittopic .topic TOPIC}
+set topicfile ""
 
 foreach n $names {
 	set fn [file join $toplevel $n]
 	if { [file exists $fn] } {
-		# Load topic
-		set fd [open $fn r]
-		while { [gets $fd line] != -1} {
-			set line [string trim $line]
-			if { [string index $line 0] == "\[" } {
-				set e [string first "\]" $line]
-				if { $e == -1 } {
-					puts "($n: invalid syntax)"
-					exit 1
-				}
-				set brname [string range $line 1 $e-1]
-				set toptext([string trim $brname]) [string trim [string range $line $e+1 end]]
-			} else {
-				set toptext(default) $line
-			}
-		}
-		close $fd
-		set curbr [exec git branch | grep ^* | cut -c 3-]
-		if { [info exists toptext($curbr)] } {
-			puts $toptext($curbr)
-		} elseif { [info exists toptext(default)] } {
-			puts $toptext(default)
-		} else {
-			puts "No topic for $curbr"
-		}
-		exit 0
+		set topicfile $fn
+		break
 	}
+	
 }
 
-puts "No topic file found ($names)"
+# Check extra args
+set curbr [exec git branch --points-at HEAD | grep ^* | cut -c 3-]
+if { [string index $curbr 0] == "(" } {
+	set curbr (detached)
+}
+
+# Read mode
+if { $args == "" } {
+
+	# Read mode. Must have a topicfile
+	if { $topicfile == "" } {
+		if { $silent } {
+			puts "No topic."
+		} else {
+			puts "No topic file found ($names)"
+		}
+		exit 1
+	}
+
+	# Load topic
+	set fd [open $topicfile r]
+	while { [gets $fd line] != -1} {
+		set line [string trim $line]
+		if { [string index $line 0] == "\[" } {
+			set e [string first "\]" $line]
+			if { $e == -1 } {
+				puts "($n: invalid syntax)"
+				exit 1
+			}
+			set brname [string range $line 1 $e-1]
+			set toptext([string trim $brname]) [string trim [string range $line $e+1 end]]
+		} else {
+			set toptext(default) $line
+		}
+	}
+	close $fd
+	if { "-g" in $options || $curbr == "(detached)" } {
+		set curbr default
+	}
+	if { [info exists toptext($curbr)] } {
+		puts $toptext($curbr)
+	} elseif { [info exists toptext(default)] } {
+		puts $toptext(default)
+	} else {
+		puts "No topic for $curbr"
+	}
+	exit 0
+}
+
+# Write mode. Take the current branch
+
+set out_gl ""
+set out_for ""
+
+if { "-g" in $options } {
+	# Set the general topic
+
+	if { $topicfile == "" } {
+		set topiccont ""
+	} else {
+		set topiccont [exec cat $topicfile]
+	}
+
+	set topiclines [split $topiccont \n]
+	
+	# The first line should contain the general topic, others with [branch].
+	# Simply skip non-branch, set the general
+
+	set contents $args\n
+	foreach l $topiclines {
+		if { [string trim $l] == "" } {
+			continue
+		}
+		if { [string index $l 0] == {[} } {
+			append contents $l\n
+		}
+	}
+
+	set out_gl " global"
+
+} else {
+
+	# Branch-related topic
+
+	if { $curbr == "(detached)" } {
+		puts stderr "Current branch is detached, can't set topic!"
+		exit 1
+	}
+
+	# Unwrap one level case someone has used "".
+	set ek [catch {llength $args} alen]
+	if {!$ek && $alen == 1} {
+		set args [lindex $args 0]
+	}
+
+	if { $topicfile == "" } {
+		set topiccont ""
+	} else {
+		set topiccont [exec cat $topicfile]
+	}
+
+	set topiclines [split $topiccont \n]
+
+	set contents ""
+	# Stream all lines as they are, except the line with current branch.
+	foreach l $topiclines {
+		if { [string trim $l] == "" } {
+			continue
+		}
+		if { [string first "\[$curbr\]" $l] == -1 } {
+			append contents $l\n
+		}
+	}
+
+	append contents "\[$curbr\] $args\n"
+
+	set out_for " for '$curbr'"
+}
+
+if { $topicfile == "" } {
+	set topicfile .topic
+}
+
+set fd [open $topicfile w]
+puts $fd $contents
+close $fd
+
+puts stderr "New$out_gl topic set$out_for: $args"
+
