@@ -44,6 +44,13 @@ if { $breq == "" } {
 	exit 0
 }
 
+if { $breq == "--help" } {
+	puts stderr "Usage:"
+	puts stderr "[file tail $argv0] <branch name> <repo|=>    # Switch to branch, maybe create, = as origin"
+	puts stderr "[file tail $argv0] -l  # List remote and local branches with their connections."
+	exit 1
+}
+
 if { $breq == "-l" } {
 
 	# Look through all local branches (brlist)
@@ -126,6 +133,11 @@ if { $breq in $brlist } {
 set remo [lindex $argv 1]
 
 if { $remo == "" } {
+	puts stderr "Usage error: Remote required, use . to create a local branch."
+	exit 1
+}
+
+if { $remo == "." } {
 	# Local
 	# Check if there isn't a remote branch with this name,
 	# it might be confusing.
