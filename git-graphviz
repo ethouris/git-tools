@@ -5,11 +5,22 @@ set config {
 	filetemplate "git-graphviz"
 	branchoptions "-a"
 	limit 100
-	viewer eog
+	viewer xdg-open
     reflog none
 	format png
 	mark none
 	origin --all
+}
+
+# This is how you open pictures on Darwin.
+if { $tcl_platform(os) == "Darwin" } {
+	dict set config viewer open
+}
+
+# Not sure what to do on Windows. With Cygwin
+# you can use cygstart
+if { [string match cygwin* [string tolower $tcl_platform(os)]] } {
+	dict set config viewer cygstart
 }
 
 set default ""
