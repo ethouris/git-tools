@@ -1,5 +1,28 @@
 #!/usr/bin/tclsh
 
+if { $argv == "--help" } {
+	puts "Usage: [file tail $argv0] ?-l|-g|-a? ?-h? ?-o...? ?directory?"
+	puts "Options:"
+	puts "\t-l  - Use local path, relative to current dir (default)"
+	puts "\t-g  - Use global path (absolute)"
+	puts "\t-a  - Display path with \$(git top) in front then relative to repo"
+	puts "\t-h  - Explain wordly the state of given file after the path"
+	puts "\t-o  - Display only files of specified state; syntax:"
+	puts "\t... -o?s|v?\[m|a|d|o|u|g|i\] (multiple allowed) where:"
+	puts "\t... s or v limits to stage or view only respectively"
+	puts "\t... m: modified files"
+	puts "\t... a: added files (stage only)"
+	puts "\t... d: deleted files (stage only)"
+	puts "\t... o/u: view private files (view only)"
+	puts "\t... g: unmerged files"
+	puts "\t... i: ignored files (.gitignore etc.)"
+	puts "\tdirectory: limit display to files contained there only"
+	puts "\nExample: git-most -g -ovim"
+	puts "Displays files modified in view and ignored with absolute path"
+
+	exit 1
+}
+
 set screwpath 1
 if { "-l" in $argv } {
 	set screwpath 1
