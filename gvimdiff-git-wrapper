@@ -178,7 +178,7 @@ puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
 if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 
 	set oldpath [getpath $older]
-	set setro "{+1windo setlocal ro}" ;# Double container so that {*} will expand to no argument or enclosed argument
+	set setro "{+windo setlocal ro}" ;# Double container so that {*} will expand to no argument or enclosed argument
 	if { ![istemp $oldpath] } {
 		set setro ""
 	}
