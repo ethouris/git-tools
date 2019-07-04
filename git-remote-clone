@@ -1,0 +1,85 @@
+#!/usr/bin/tclsh
+
+set origin_url [exec git remote get-url --all origin]
+
+if {[llength $origin_url] > 1} {
+	puts stderr "More than one URL per origin, can't automate cloning"
+	exit 1
+}
+
+# Check the syntax; two are possible:
+# - git@github.com:<USER>/<REPO>
+# - https://github.com/<USER>/<REPO>
+
+# Not sure if repositories can have multi-level path,
+# but it's safer to bet.
+
+if { [set pos [string first :// $origin_url]] != -1 } {
+	# A usual form of SCHEME://HOST/PATH/ELEMENTS...
+
+	incr pos 3
+	set pathpos [string first / $origin_url $pos]
+	if { $pathpos == -1 } {
+		puts stderr "Wrong URL - no path in this part: [string range $origin_url $pos end]"
+		exit 1
+	}
+
+	# Skip this first slash, the path will start from
+	# the first path word (the username)
+	incr pathpos
+} else {
+	# Check that @ precedes :
+	set userpos [string first @ $origin_url]
+	if { $userpos == -1 } {
+		puts stderr "Can't recognize syntax in URL, no :// and no @: $origin_url"
+		exit 1
+	}
+
+	set pathpos [string first : $origin_url $userpos]
+	if {$pathpos == -1} {
+		puts stderr "Can't recognize syntax in URL, no colon: $origin_url"
+		exit 1
+	}
+
+	incr pathpos
+}
+
+set prefix [string range $origin_url 0 $pathpos-1]
+set path [string range $origin_url $pathpos end]
+
+set parts [split $path /]
+
+set username [lindex $parts 0]
+set reponame [join [lrange $parts 1 end] /]
+
+# Now check parameters :)
+
+lassign $argv remotename newusername
+
+if {$remotename == ""} {
+	puts stderr "Usage: [file tail $argv0] <remotename> ?newusername=<remotename>?"
+	exit 1
+}
+
+if {$newusername == ""} {
+	set newusername $remotename
+}
+
+if {$newusername == $username} {
+	puts stderr "User '$username' is already used in origin remote"
+	exit 1
+}
+
+if {$remotename in [exec git remote]} {
+	puts stderr "Remote '$remotname' already exists"
+	exit 1
+}
+
+# Put it back together
+
+set new_url $prefix$newusername/$reponame
+
+#puts "DRY RUN: git remote add $remotename $new_url"
+
+exec git remote add $remotename $new_url >@stdout 2>@stderr
+

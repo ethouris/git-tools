@@ -40,6 +40,17 @@ if { [info exists env(GVIM)] } {
 	set vim "gvim -f"
 } elseif { $osname == "Cygwin" && [info exists env(VIMPATH)]} {
 	set vim $env(VIMPATH)
+	puts "vim: $vim"
+	# Happens that there are spaces in the name.
+	# We don't predict that this contains an option.
+	# Protect against interpreting it as a list
+	if { [llength $vim] > 1 } {
+		set vim "{$vim}"
+	} elseif { [string index $vim 0] == "\"" } {
+		# Change "the path\to\windows" to {the path\to\windows}
+		# because in "" Tcl will resolve backslashes!
+		set vim "{[string range $vim 1 end-1]}"
+	}
 	if { [string match gvim* [file tail $vim]] } {
 		lappend vim -f
 	}
@@ -93,6 +104,11 @@ proc answer {} {
 	set a [gets stdin]
 	return [string tolower [string index $a 0]]
 }
+
+#puts stderr "WILL RUN VIM:"
+#for {set i 0} {$i < [llength $vim]} {incr i} {
+#	puts stderr "{$i} [lindex $vim $i]"
+#}
 
 lassign $argv older newer base
 
@@ -182,8 +198,9 @@ if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 	if { ![istemp $oldpath] } {
 		set setro ""
 	}
+	set verb "{+set verbose=1}"
 
-	exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $newer] {*}$setro
+	exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $newer] {*}$setro {*}$verb
 } else {
 	puts " --- Diff reported no differences in file contents;"
 

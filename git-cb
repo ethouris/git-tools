@@ -7,7 +7,7 @@ set brlist "" ;# others only
 set remote_brlist "" ;# remote branches only
 set remotes [join [exec git remote] " "]
 
-foreach br [split [exec git branch --no-color --list -a] \n] {
+foreach br [split [exec git branch 2>@stderr --no-color --list -a] \n] {
 	# Skip pointing branches
 	if { [string first " -> " $br] != -1 } {
 		continue
