@@ -197,7 +197,7 @@ puts $ofile "digraph \{"
 puts $ofile "// COMMIT BALLS: setting info for every commit"
 
 foreach {this msg} [array get ::info] {
-	if { [string first $this $::mark] == 0 } {
+	if { [lsearch $::mark $this*] != -1 } {
 		puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=red fillcolor=\"#CCFFCC\" style=\"filled,bold\"];"
 	} else {
 		puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=\"#CCFFCC\" style=filled];"
