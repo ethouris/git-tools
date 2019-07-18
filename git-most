@@ -267,7 +267,8 @@ proc localize {cwd path} {
 	set localcomp [file split $cwd]
 	set path [file normalize $path] ;# for any case, skip any weird things
 	# Check for simple strip
-	if { [string first $cwd $path] == 0 } {
+
+	if { [string first $cwd/ $path] == 0 } {
 		return [string range $path [string length $cwd]+1 end]
 	}
 
