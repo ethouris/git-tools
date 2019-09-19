@@ -1,0 +1,21 @@
+#!/usr/bin/tclsh
+
+lassign $argv headcommit
+
+if {$headcommit == ""} {
+	set headcommit HEAD
+}
+
+set headx [exec git rev-parse $headcommit]
+set parentx [exec git rev-parse ${headcommit}~1]
+
+# Ok now extract the parents and cut off these two above
+
+set parents [exec git rev-list --parents -n 1 $headcommit]
+
+set skipme "($headx|$parentx)"
+
+set output [lsearch -all -inline -not -regexp $parents $skipme]
+
+puts $output
+
