@@ -133,7 +133,11 @@ if { $breq in $brlist } {
 set remo [lindex $argv 1]
 
 if { $remo == "" } {
-	puts stderr "Usage error: Remote required, use . to create a local branch."
+	puts stderr "Usage error: Remote required, arg #2 should be:"
+	puts stderr "    <remote>  - explicit remote name"
+	puts stderr "    =         - the default remote"
+	puts stderr "    =<prefix> - remote out of those in config that start with <prefix>"
+	puts stderr "    .         - no remote (local branch)"
 	exit 1
 }
 
@@ -202,7 +206,15 @@ if {"$remo/$remobr" in $remote_brlist} {
 	exec >@stdout git config branch.$breq.remote $remo
 	exec >@stdout git config branch.$breq.merge refs/heads/$remobr
 
-	puts "No remote branch - will be remote-created at first push (please ignore git complaints)"
+	puts " --- No remote branch - will be remote-created at first push (please ignore git complaints)"
+}
+
+set desc [lrange $argv 2 end]
+if {$desc != ""} {
+	if {[llength $desc] == 1} {
+		set desc [lindex $desc 0]
+	}
+	exec >@stdout git config branch.$breq.description $desc
 }
 
 set checkedout [exec git status -s -uno]

@@ -194,13 +194,16 @@ puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
 if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 
 	set oldpath [getpath $older]
-	set setro "{+windo setlocal ro}" ;# Double container so that {*} will expand to no argument or enclosed argument
+	set setro "{+exec 'windo setlocal ro' | setlocal noro}" ;# Double container so that {*} will expand to no argument or enclosed argument
 	if { ![istemp $oldpath] } {
 		set setro ""
 	}
-	set verb "{+set verbose=1}"
 
-	exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $newer] {*}$setro {*}$verb
+	set verb ""; #"{+set verbose=1}"
+
+	set cmd [list {*}$vim -d [getpath $older] [getpath $newer] {*}$setro {*}$verb]
+	#puts "EXEC: $cmd"
+	exec >@stdout 2>@stderr {*}$cmd
 } else {
 	puts " --- Diff reported no differences in file contents;"
 
