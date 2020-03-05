@@ -20,7 +20,7 @@ if { $top == "" } {
 		exit 1
 	}
 
-	#puts stderr "REFLOG:\n$lines"
+	puts stderr "REFLOG:\n$lines"
 
 	set brdata ""
 	foreach l [split $lines \n] {
@@ -34,9 +34,14 @@ if { $top == "" } {
 		set br [lindex $left 0]
 		set ver [string range [lindex $left 1] 1 end-1]
 
+		if { $br == "HEAD" } {
+			puts stderr "(skipping HEAD)"
+			continue
+		}
+
 		dict set brdata $br $ver
 	}
-	#puts stderr "COLLECTED: $brdata"
+	puts stderr "COLLECTED: $brdata"
 
 	set branches [dict keys $brdata]
 
@@ -46,9 +51,14 @@ if { $top == "" } {
 		set br [string range $brl 2 end]
 		if { [string index $br 0] == "(" } {
 			# detached.
-			puts stderr "Can't extract the toplevel by branchname from reflog nor current branch. Please select one of:"
-			foreach b $branches {
-				puts stderr $b
+			puts -nonewline stderr "Can't extract the toplevel by branchname from reflog nor current branch."
+			if { $branches == "" } {
+				puts stderr " Can't find your branch name."
+			} else {
+				puts stderr " Please select one of:"
+				foreach b $branches {
+					puts stderr $b
+				}
 			}
 			exit 1
 		} else {
@@ -58,6 +68,10 @@ if { $top == "" } {
 		set top [lindex $branches 0]
 	}
 	
+	if { $top == "HEAD" } {
+		puts stderr "This is HEAD reflog, looxlike the reflog was wiped out. Please specify your branch."
+		exit 1
+	}
 }
 
 set list [exec git rev-list --ancestry-path $point..$top]

@@ -42,7 +42,7 @@ foreach n $names {
 }
 
 # Check extra args
-set curbr [exec git branch --points-at HEAD | grep ^* | cut -c 3-]
+set curbr [exec git branch | grep ^* | cut -c 3-]
 if { [string index $curbr 0] == "(" } {
 	set curbr (detached)
 }
@@ -161,7 +161,7 @@ if { "-g" in $options } {
 }
 
 if { $topicfile == "" } {
-	set topicfile .topic
+	set topicfile $toplevel/.topic
 }
 
 set fd [open $topicfile w]
@@ -169,4 +169,5 @@ puts $fd $contents
 close $fd
 
 puts stderr "New$out_gl topic set$out_for: $args"
+puts stderr "Written into: $topicfile"
 
