@@ -70,7 +70,9 @@ if { [info exists ::options(help)] || [info exists ::options(usage)] || [info ex
 }
 
 proc gethist {} {
-	return [exec git log -n $::limit "--pretty=format:%h %p" $::origin]
+	set cmd [list git log -n $::limit "--pretty=format:%h %p" $::origin]
+	puts stderr "RUNNING: $cmd"
+	return [exec {*}$cmd]
 }
 
 proc getinfo hash {
