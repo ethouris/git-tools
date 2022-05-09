@@ -226,6 +226,45 @@ if { $hdx == "ref:" } {
 	}
 	puts stderr "=$branch"
 } else {
+	# In order to display a remote, here you have to select one
+	# that seems best, as with detached head it is not assigned to
+	# any.
+	#
+	# Unfortunately git doesn't have a mechanism to list subkeys. Good old grep can be of help.
+
+	set remotes [split [exec git config -l | grep ^remote\\.] \n]
+
+	# The procedure is: find any remote. If there is a remote
+	# named "origin", used it. Otherwise use the first found.
+	# Therefore notify the first one and the one with name origin.
+
+	set retr_origin ""
+	set retr_first_url ""
+
+	# Here we iterate over all config entries, but we are only
+	# interested with remote.X.url.
+	foreach r $remotes {
+		 if { [regexp {^remote.([^\.]+).url=(.*)} $r unu name url] } {
+			 if {$retr_first_url == ""} {
+				 set retr_first_url [list $name $url]
+			 }
+
+			 if {$name == "origin"} {
+				 set retr_origin $url
+			 }
+		 }
+	}
+
+	if {$retr_origin != ""} {
+		set hosted "HOSTED: origin ($retr_origin) \[found origin\]"
+	} elseif {$retr_first_url != ""} {
+		set hosted "HOSTED: [lindex $retr_first_url 0] ([lindex $retr_first_url 1]) \[first found\]"
+	} else {
+		set hosted "HOSTED: locally"
+	}
+
+	puts stderr "=$hosted"
+
 	set branch "DETACHED: $hdx"
 	puts stderr "=$branch"
 }
