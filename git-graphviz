@@ -386,9 +386,10 @@ if { [file exists [top]/.git/MERGE_HEAD] } {
 
 set taglist [exec git tag]
 
-puts $ofile "// CHECKING TAGS: [list {*}$taglist]"
+puts $ofile "// CHECKING TAGS:"
 
 foreach t $taglist {
+	puts $ofile "// --- $t"
 	set h [gethash $t]
 	if { [info exists ::hbrlocal($t)] } {
 		set tname $::hbrlocal($t)
