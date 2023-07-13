@@ -65,11 +65,26 @@ if { $onlyopt != "" } {
 	}
 }
 
+set want_ignored no
+set want_other yes
+
 # Show untacked (also if untracked-only)
 if { "-u" ni $argv && $only != "prv" } {
+	set want_other no 
+}
+
+if {"-i" in $argv || $only == "ign"} {
+	set want_ignored yes
+}
+
+# You can't display ignored files, but without other files.
+if {!$want_other && !$want_ignored} {
 	lappend git_options -uno
 }
 
+if {$want_ignored} {
+	lappend git_options --ignored
+}
 
 set args ""
 foreach a $argv {
@@ -293,9 +308,9 @@ if { $hdx != "" } {
 }
 
 
-puts -nonewline stderr "Reading..."
+puts -nonewline stderr "Reading:..."
 set porc [exec git status {*}$git_options {*}$args]
-puts -nonewline stderr "\r                                \r"
+puts -nonewline stderr "\r                    \r"
 
 proc localize {cwd path} {
 
@@ -393,6 +408,8 @@ foreach ln [split $porc \n] {
 	set iview [string index $ln 1]
 	set path [string range $ln 3 end] ;# [2] is space
 
+	#puts "D stage='$istage' view='$iview' path=$path"
+
 	if { [llength $path] == 3 && [lindex $path 1] == "->" } {
 		set tar [lindex $path 2]
 		set path [lindex $path 0]
@@ -428,6 +445,13 @@ foreach ln [split $porc \n] {
 		set onlywanted { $sig_stage == $only }
 	} else {
 		set onlywanted { $sig_view == $only || $sig_stage == $only } 
+	}
+
+	# There's a special situation about the other files that
+	# must be displayed together with ignored files. Therefore
+	# if others are not wanted and this is one, do not display it.
+	if {!$want_other && $iview == "?"} {
+		continue
 	}
 
 	if { $only == "" } {
