@@ -108,7 +108,7 @@ if { $breq == $thisbr } {
 # FIRST ARGUMENT: branch name. This branch must be set to the view,
 # and created if it doesn't exist. Beside this:
 
-# git cb dev-fix-error
+# git cb dev-fix-error .
 #  -- Create local branch.
 #
 # git cb dev-fix-error =

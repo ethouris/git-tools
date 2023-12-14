@@ -3,6 +3,26 @@ Git Tools
 
 This is a set of useful commands to help with `git`.
 
+####  git-cb `<branch>` `<remotespec>`
+
+Creates a local branch, possibly bound to a remote branch from upside, drawn off
+your currently set branch.
+
+The `<branch>` name is of your choice. The `<remotespec>` should be one of:
+
+* `.` - create a local branch with no remote binding
+* `=` - use the default "origin" remote
+* `=P` - use the remote which's name starts with P
+* `R` - use the remote with given (full) name R
+* `R/B` - use the remote R and the remote branch name B
+
+Unless you used `.`, the new branch will be automatically set to track a remote
+branch. Git doesn't like this exactly, so it will display some warning, which
+you should ignore. The branch state will be created, but with no commits. After
+you push at least one commit to this, the state will be correct and you can push
+commits to the remote branch since then on.
+
+
 ####  git-del `<repo-file>`
 
 This deletes the file from the repository - that is, from the working directory perspective it turns the in-repo
