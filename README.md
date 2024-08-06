@@ -3,7 +3,7 @@ Git Tools
 
 This is a set of useful commands to help with `git`.
 
-####  git-cb `<branch>` `<remotespec>`
+###  git-cb `<branch>` `<remotespec>`
 
 Creates a local branch, possibly bound to a remote branch from upside, drawn off
 your currently set branch.
@@ -22,18 +22,25 @@ you should ignore. The branch state will be created, but with no commits. After
 you push at least one commit to this, the state will be correct and you can push
 commits to the remote branch since then on.
 
+You should have no files checked out at the time when executing it. If you have
+any, the branch will be created, but not switched to. You would have to switch to
+this branch manually, after you have dealt with the checked out files.
 
-####  git-del `<repo-file>`
 
-This deletes the file from the repository - that is, from the working directory perspective it turns the in-repo
-file into a private file. Unlike `git rm`, the file isn't removed from the directory.
+###  git-del `<repo-file>`
 
-This is actually an alias to `git rm --cached`. The usual `git rm X` should be treated as `git del X; rm X`.
+This deletes the file from the repository - that is, from the working directory
+perspective it turns the in-repo file into a private file. Unlike `git rm`, the
+file isn't removed from the directory.
 
-####  git-distill-patch `<parent-branch> <patch-overlay-file>`
+This is actually an alias to `git rm --cached`. The usual `git rm X` should be
+treated as `git del X; rm X`.
 
-This is useful when you have some your own changes on the git repository view, which you'd like to preserve, but
-you want to share all other your changes with the upstream.
+###  git-distill-patch `<parent-branch> <patch-overlay-file>`
+
+This is useful when you have some your own changes on the git repository view,
+which you'd like to preserve, but you want to share all other your changes with
+the upstream.
 
 To use it, you should first make those non-shareable changes **only** in the
 repository, then create a patch out of the current set of changes and save it
@@ -46,7 +53,7 @@ patch purged of your private changes (as defined in `<patch-overlay-file>`).
 This script is only a forwarder, the whole job will be done by
 `patch-distill.tcl` script.
 
-####  git-getpin `?submodule-repo?`
+###  git-getpin `?submodule-repo?`
 
 This returns the SHA1 code of the commit by which a submodule is pinned into the parent repository. Without arguments
 it returns the pinned commit of the submodule that your current working directory points to. Optional argument is the
@@ -55,16 +62,16 @@ the same as the __pinned__ version in the parent repository. If they differ, it 
 do `git add` for this submodule repository in the parent repository, or change the HEAD of the submodule to the one
 that is returned by `git getpin`.
 
-####  git-graphviz
+###  git-graphviz
 
 This creates a version diagram using __grahpviz's dot__ tool and runs a picture viewer to see it (default: eog). Options
 with their defaults are shown when run.
 
-####  git-man
+###  git-man
 
 Alias to `git help`.
 
-####  git-most
+###  git-most
 
 This displays the "most useful set of information" for the current repository:
 the repo's origin, the SHA1 code of the current branch and version, and the
@@ -86,9 +93,9 @@ or _view_ respectively. Without this option it shows from both. Note of course t
 for state options `o`/`u` the `s` or `v` selection is ignored.
 
 Files displayed with -o option have no header and no extra information, this option is
-predicted to be used with additional pipe processing.
+intended to be used with additional pipe processing.
 
-####  git-new-workdir `<base-dir>` `<new-dir>` `?branch?`
+###  git-new-workdir `<base-dir>` `<new-dir>` `?branch?`
 
 This is a copy of a git-new-workdir script taken from
 [Git contrib](https://github.com/git/git/tree/master/contrib/workdir). Placed here
@@ -100,45 +107,46 @@ separate working directories, but using one replica storage. This can save your
 diskspace and time by not uselessly multiplying repository replicas on one disk,
 only to have multiple working directories.
 
-####  git-prefix
+###  git-prefix
 
 Returns the current working directory starting from the current git view working directory.
 
-####  git-rolling-resolve
+###  git-rolling-resolve
 
 This tool is useful only for teams that use rebase-mode workflow. This does rebase and merge
 in loop, until the rebase states that there are no more conflicts.
 
-####  git-sp
+###  git-sp
 
 This is a helper script for `git subtree`. It supplies automatically the --prefix option that
 `git subtree` normally requires. Useful only if you use `git subtree` tool. The prefix is taken
 from the current directory. Note that `git subtree` requires that the current directory is the
 git toplevel directory.
 
-####  git-top
+###  git-top
 
 Returns the toplevel directory if the current directory is inside a git view working directory.
+It's actually an alias to `git rev-parse --show-toplevel`.
 
-####  git-track `?-n?` `<branch name>`
+###  git-track `?-n?` `<branch name>`
 
 Sets tracking for a remote branch. This is useful when you create a new branch and
 want it to be a public branch since the very beginning. If this is a local branch
 only to be turned into a public branch, use `-n` option (otherwise it creates a local
 branch tracked to a public branch).
 
-####  git-tripconfig
+###  git-tripconfig
 
 Displays the full git configuration (everything, not just a configuration from the current repo)
 in the TRIP format.
 
-####  gvimdiff-git-wrapper
+###  gvimdiff-git-wrapper
 
 This is a much better than original diff tool using gvim (or vim, if gvim cannot be used). It handles
 much better first of all the differences only in rights, added and deleted files. See the file itself
 for an instruction how to make this script handle your 'git difftool' calls.
 
-####  patch-distill.tcl
+###  patch-distill.tcl
 
 See git-distill-patch.
 
