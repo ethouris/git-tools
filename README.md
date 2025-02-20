@@ -3,6 +3,30 @@ Git Tools
 
 This is a set of useful commands to help with `git`.
 
+###  git-base `[branch]` `<options...>`
+
+Show the commit that this branch was drawn off, in order to be able to identify
+changes that have been introduced in this branch towards its parent branch. By
+default the current branch is taken - for detached head it can't be used with
+the default branch parameter.
+
+It is considered that the parent branch is the branch specified in the last
+extracted reflog entry for the checked branch. If that part doesn't contain
+this information, the parent branch is not identifiable. You can specify
+this branch manually using the `--off` option.
+
+Options:
+
+* `--off <branch>`: Declare that the branch to be checked should be drawn
+off the given branch (the reflog entry with this branch will be considered
+the last drawn-off).
+
+* `--all`: Print every entry that was marked as a merge from a known branch.
+Together with `--debug` will print the name of the branch found with this entry.
+
+* `--debug`: Print all entries and the branch information, if found.
+
+
 ###  git-cb `<branch>` `<remotespec>`
 
 Creates a local branch, possibly bound to a remote branch from upside, drawn off

@@ -36,8 +36,8 @@ proc default opt {
 set la ""
 set ia ""
 foreach val $argv {
-	if { $la != "" } {
-		set ::options($la) $val
+
+	if { $val == "--/" } {
 		set la ""
 		continue
 	}
@@ -48,21 +48,30 @@ foreach val $argv {
 		continue
 	}
 
+	if { $la != "" } {
+		lappend ::options($la) $val
+		continue
+	}
+
 	# If not for-option and not option, then free args.
 	lappend ia $val
 }
 
+# ia: free arguments, not in use currently.
+
 
 # Now override defaults
 foreach {option default} $config {
+	set isdef 0
 	if { [info exists ::options($option)] } {
 		set ::$option $::options($option)
 	} else {
-		set ::$option $default
+		set ::$option ${default}
 		lappend default $option
+		set isdef 1
 	}
 	
-	puts stderr "OPTION: --$option [set ::$option]"
+	puts stderr "OPTION: --$option [set ::$option][expr {$isdef ? {(default)}:{}}]"
 }
 
 if { [info exists ::options(help)] || [info exists ::options(usage)] || [info exists ::options(man)]} {

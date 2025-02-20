@@ -1,21 +1,224 @@
 #!/usr/bin/tclsh
 
-lassign $argv headcommit
+set la ""
+set ia ""
+foreach val $argv {
 
-if {$headcommit == ""} {
-	set headcommit HEAD
+	if { $val == "--/" } {
+		set la ""
+		continue
+	}
+
+	if { [string range $val 0 1] == "--" } {
+		set la [string range $val 2 end]
+		set ::options($la) ""
+		continue
+	}
+
+	if { $la != "" } {
+		lappend ::options($la) $val
+		continue
+	}
+
+	# If not for-option and not option, then free args.
+	lappend ia $val
 }
 
-set headx [exec git rev-parse $headcommit]
-set parentx [exec git rev-parse ${headcommit}~1]
+if { [llength $ia] > 1 } {
+	"Usage: git base \[branch\] <options...>"
+	exit 1
+}
 
-# Ok now extract the parents and cut off these two above
+proc option {name {default ""}} {
+	if {[info exists ::options($name)]} {
+		return $::options($name)
+	}
 
-set parents [exec git rev-list --parents -n 1 $headcommit]
+	return $default
+}
 
-set skipme "($headx|$parentx)"
+set mbranch $ia
 
-set output [lsearch -all -inline -not -regexp $parents $skipme]
+if {$mbranch == ""} {
+	set mbranch [exec git branch --show-current]
+	if {$mbranch == ""} {
+		puts stderr "ERROR: Detached head state. The branch must be explicitly specified"
+		exit 1
+	}
+}
 
-puts $output
+set refloginfo [exec git reflog show $mbranch {--pretty=format:%H %gd {%D}}]
+
+set all_remotes [exec git remote]
+
+set reflogdata ""
+
+foreach i [split $refloginfo \n] {
+	lassign $i hid refmark branchinfo
+	lassign [split $refmark @] mbr ord
+
+	set brlist [split $branchinfo ,]
+
+	set markhead ""
+
+	set sidebr ""
+	foreach b $brlist {
+		set b [string trim $b]
+		lassign [regexp -inline {([^ ]*) -> ([^ ]*)} $b] unu hd br
+		if {$unu != ""} {
+			if {$hd == "HEAD"} {
+				set markhead "="
+			}
+		} else {
+			set br $b
+		}
+
+		if { [string range $br 0 4] == "tag: " } {
+			set br "" ;# ignore tags
+		}
+
+		set isrem 0
+		# Now check if the branch is remote
+		set brparts [file split $br]
+		if {[llength $brparts] > 1} {
+			# Name with slash; check if the first part is remote.
+			# If so, it's a remote branch
+			set rname [lindex $brparts 0]
+			if {$rname == "remotes" || $rname in $all_remotes} {
+				set isrem 1
+			}
+		}
+
+		if {!$isrem && $sidebr == ""} {
+			set sidebr $br
+		}
+	}
+
+	lappend reflogdata $hid ${markhead}$sidebr
+}
+
+# May check the parent information, if necessary:
+
+#set parents [exec git rev-list --parents -n 5 $headcommit]
+
+# foreach l [split $parents \n] {
+# 	puts "\[[lindex $l 0]\] -> [lrange $l 1 end]"
+# }
+
+# Display - for debugging
+
+# Note: with --all, all other options are ignored, except debug
+set is_debug [expr {[option debug -] != "-"}]
+
+if {[option all -] != "-"} {
+	# Walk through the list, skip those that have
+	# the head branch (= in the name) or no branch info.
+	# Display all others, in the right order.
+
+	set first 1
+	foreach {hid br} $reflogdata {
+		if {$first} {
+			# Skip the very first entry, it's the branch's head.
+			set first 0
+			continue
+		}
+		if {$br == ""} {
+			continue
+		}
+
+		if {$is_debug} {
+			puts "$hid : $br"
+		} else {
+			puts $hid
+		}
+	}
+	exit 0
+}
+
+if {$is_debug} {
+	foreach {hid br} $reflogdata {
+
+		if {$br == ""} {
+			puts "$hid (continued)"
+		} else {
+			puts "$hid : $br"
+		}
+	}
+	exit 0
+}
+
+
+# Search for the first found with branch marker, just not head.
+set first [option first -]
+if {$first != "-"} {
+
+	set first 1
+	foreach {hid br} $reflogdata {
+		if {$first} {
+			# Skip the very first entry, it's the branch's head.
+			set first 0
+			continue
+		}
+		if {$br == ""} {
+			continue
+		}
+
+		puts $hid
+		exit 0
+	}
+
+	puts stderr "NOTE: no commit found merged from '$reqbase'"
+	exit 0
+}
+
+set reqbase [option off]
+
+# This option defines, which branch is considered the parent branch.
+# If defined, this branch will be searched in the list. Otherwise first
+# found will be considered the direct base.
+
+# If not, look at the BOTTOM of the list to see if you have the first branch
+# (default mode)
+if {$reqbase == ""} {
+	set reqbase [lindex $reflogdata end] 
+	if {$reqbase == ""} {
+		set hdbr [lindex $reflogdata 1]
+		if {[string index $hdbr 0] == "="} {
+			set hdbr [string range $hdbr 1 end]
+		} else {
+			set hdbr "(unknown)"
+		}
+
+		puts stderr "NOTE: No draw-off information found for '$mbranch' walking from '$hdbr'"
+		exit 1
+	}
+}
+
+# Just in case, read the reflog information from this name.
+set reqbase_reflog [exec git reflog show $reqbase --pretty=format:%H]
+
+set first 1
+foreach {hid br} $reflogdata {
+	if {$first} {
+		# Skip the very first entry, it's the branch's head.
+		set first 0
+		continue
+	}
+	if {$br == ""} {
+		# Check that maybe this hash is in the reqbase reflog
+		# XXX CHECK ITS CHILD COMMIT, NOT IT ITSELF!
+		if {$hid in $reqbase_reflog} {
+			set br $reqbase
+		} else {
+			continue
+		}
+	}
+
+	if {$br == $reqbase} {
+		puts $hid
+		exit 0
+	}
+}
+puts stderr "NOTE: no commit found merged from '$reqbase'"
+exit 0
 
