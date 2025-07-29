@@ -45,7 +45,7 @@ if { $breq == "" } {
 }
 
 if { $breq == "--help" } {
-	puts stderr "Usage:"
+	puts stderr "Usage:\n"
 	puts stderr "[file tail $argv0] <branch name> <repo|=>    # Switch to branch, maybe create, = as origin"
 	puts stderr "[file tail $argv0] -l  # List remote and local branches with their connections."
 	exit 1
@@ -58,6 +58,10 @@ if { $breq == "-l" } {
 	# - if only local, /BRANCH
 	# - if remote with identical name, REMOTE/BRANCH
 	# - if remote with different name: /BRANCH = REMOTE/RBRANCH
+
+	# thisbr was extracted as current, but in list mode we need
+	# to include it
+	lappend brlist $thisbr
 
 	foreach br $brlist {
 		if { [catch {exec git config --get branch.$br.remote} remote] } {

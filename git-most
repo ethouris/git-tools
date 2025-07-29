@@ -93,10 +93,7 @@ foreach a $argv {
 	}
 }
 
-if {[catch {set top [exec git rev-parse --show-toplevel]} out]} {
-	puts stderr "Can't obtain repository info: $out"
-	exit 1
-}
+set top [exec git rev-parse --show-toplevel]
 
 proc gethash_full ref {
 	return [exec git log -1 $ref --format=%H --]
