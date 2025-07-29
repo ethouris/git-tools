@@ -1,0 +1,46 @@
+#!/usr/bin/tclsh
+
+# To use that, put the following lines in your .gitconfig file:
+#
+#[merge]
+#	tool = manual
+#
+#[mergetool]
+#	keepBackup = false
+#
+#[mergetool.manual]
+#    cmd = kdiff3-git-wrapper "\"$MERGED\"" "\"$BASE\"" "\"$LOCAL\"" "\"$REMOTE\""
+
+# ^^^ IMPORTANT!!! These "double quoting" things are necessary so that
+# names with spaces are correctly handled!
+
+# Keep argument names same as they are
+lassign $argv MERGED BASE LOCAL REMOTE
+
+if { [catch {exec git branch --show-current} curbr] } {
+	set curbr ""
+} else {
+	set curbr ": $curbr"
+}
+
+set merge_head ""
+
+if {[catch {exec git rev-parse MERGE_HEAD} merge_head]} {
+	set merge_head ""
+} else {
+	if { ![catch {exec git branch -a --contains $merge_head} cc] } {
+		set merge_head ": [string trim [lindex [split $cc \n] 0]]"
+	}
+}
+
+set lab_base "$MERGED (Base)"
+set lab_local "$MERGED (Local$curbr)"
+set lab_remote "$MERGED (Foreign$merge_head)"
+
+if { [catch {exec >@stdout 2>@stderr kdiff3 --L1 $lab_base --L2 $lab_local --L3 $lab_remote -o $MERGED $BASE $LOCAL $REMOTE} errors] } {
+	puts stderr $errors
+	exit 1
+}
+
+exit 0
+
