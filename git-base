@@ -11,6 +11,10 @@ foreach val $argv {
 
 	if { [string range $val 0 1] == "--" } {
 		set la [string range $val 2 end]
+		if {$la == "help"} {
+			set ia ""
+			break
+		}
 		set ::options($la) ""
 		continue
 	}
@@ -191,6 +195,8 @@ if {$reqbase == ""} {
 
 		puts stderr "NOTE: No draw-off information found for '$mbranch' walking from '$hdbr'"
 		exit 1
+	} elseif {[string index $reqbase 0] == "="} {
+		set reqbase [string range $reqbase 1 end]
 	}
 }
 

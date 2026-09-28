@@ -110,7 +110,7 @@ proc answer {} {
 #	puts stderr "{$i} [lindex $vim $i]"
 #}
 
-lassign $argv older newer base
+set difftool_args [lassign $argv older newer base]
 
 if { $older == "/dev/null" } {
 
@@ -125,7 +125,7 @@ if { $older == "/dev/null" } {
 
 	if { $ftype == "file" } {
 	
-		ask "ADDED: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
+		ask "LOCAL/NEWLY-ADDED: $ftype '$fname'  (e)dit/(s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[e/S/d\] "
 		switch -- [answer] {
 			e {
 				exec >@stdout 2>@stderr {*}$vim [getpath $fname]
@@ -136,7 +136,7 @@ if { $older == "/dev/null" } {
 		}
 	} else {
 		# For other types offer just deletion
-		ask "ADDED: $ftype '$fname'  (s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[S/d\] "
+		ask "LOCAL/NEWLY-ADDED: $ftype '$fname'  (s)kip/(d)elete from repo (NOT FROM FILESYSTEM) \[S/d\] "
 		if { [answer] == "d" } {
 			exec >@stdout git rm --cached [getpath $fname]
 		}
@@ -157,7 +157,7 @@ if { $newer == "/dev/null" } {
 		exit 0
 	}
 
-	ask "DELETED:  '$base' (e)dit as new/(s)kip/(r)estore in the repo \[e/S/r\] "
+	ask "FOREIGN/DELETED:  '$base' (e)dit as new/(s)kip/(r)estore in the repo \[e/S/r\] "
     switch -- [answer] {
 		e {
 			exec >@stdout 2>@stderr {*}$vim -d [getpath $older] [getpath $base]
@@ -189,49 +189,116 @@ foreach mask $skipfiles {
 	}
 }
 
-puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
-# This call to 'diff' ignores differences caused by Windows EOLs.
-if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
+proc posixperm {di} {
+	set profm {--- rwx}
+	set out ""
+	for {set i 0} {$i < 3} {incr i} {
+		append out [string index [lindex $profm [expr { ((1 << (2 - $i)) & $di) != 0 }]] $i]
+	}
+	return $out
+}
 
-	set oldpath [getpath $older]
-	set setro "{+exec 'windo setlocal ro' | setlocal noro}" ;# Double container so that {*} will expand to no argument or enclosed argument
-	if { ![istemp $oldpath] } {
-		set setro ""
+proc posixft {mode} {
+	set ci [string range $mode 0 2]
+	switch -- $ci {
+		100 { return - }
+		120 { return l }
+		160 { return g }
+		040 { return d }
+		default { return ? }
+	}
+}
+
+proc showmode mode {
+	set perm [string range $mode 3 end]
+	set out [posixft $mode]
+	foreach d [split $perm ""] {
+		append out [posixperm $d]
+	}
+	return $out
+}
+
+
+if {$older == $newer} {
+	# No point in checking by diff or any other way - if we have
+	# two the same paths, simply both names refer to the same thing.
+	#set gittop [file dirname $::env(GIT_DIR)]
+	#set abspath [file join $gittop $newer]
+	set changed yes
+	if {[info exists ::env(GITX_MDIFF_MODE_CHANGES)]} {
+		if { ![dict exists $::env(GITX_MDIFF_MODE_CHANGES) $older] } {
+			set changed no
+		} else {
+			lassign [dict get $::env(GITX_MDIFF_MODE_CHANGES) $older] oldmode newmode
+			set oft [posixft $oldmode]
+			set nft [posixft $newmode]
+			if {$oft == $nft && $oft != "?"} {
+				ask "MODE '$older' CHANGED:\n  OLD/REMOTE: [showmode $oldmode]\n  NEW/LOCAL : [showmode $newmode]\nUse (o)ld or (n)ew permissions (o/N)? "
+				if { [answer] == "o" } {
+					# Apply permissions on the file
+					set perm [string range $oldmode end-2 end]
+					exec 2>@stderr >@stdout chmod $perm $older
+				}
+			} else {
+				puts "MODE '$older' CHANGED:\n  OLD/REMOTE: [showmode $oldmode]\n  NEW/LOCAL: [showmode $newmode]"
+				ask "No automated change can be proposed; file type changed: $oft -> $nft \[press Enter\]"
+				answer
+			}
+		}
+	} else {
+		set changed no
 	}
 
-	set verb ""; #"{+set verbose=1}"
-
-	set cmd [list {*}$vim -d [getpath $older] [getpath $newer] {*}$setro {*}$verb]
-	#puts "EXEC: $cmd"
-	exec >@stdout 2>@stderr {*}$cmd
+	if {!$changed} {
+		puts "NO CHANGES IN: $older"
+	}
 } else {
-	puts " --- Diff reported no differences in file contents;"
+	# This call to 'diff' ignores differences caused by Windows EOLs.
+	puts "DIFF: '$base'" ;# -- (PASSED: $argv)"
+	if { [catch {exec diff --strip-trailing-cr -q $older $newer}] } {
 
-	set maxlen [expr {max([string length $older],[string length $newer])}]
+		set oldpath [getpath $older]
+		set setro "{+exec 'windo setlocal ro' | setlocal noro}" ;# Double container so that {*} will expand to no argument or enclosed argument
+		if { ![istemp $oldpath] } {
+			set setro ""
+		}
 
-	set oxspace [string repeat " " [expr {$maxlen - [string length $older]}]]
-	set nxspace [string repeat " " [expr {$maxlen - [string length $newer]}]]
+		set verb ""; #"{+set verbose=1}"
 
-	set any no
-	# Try to extract extra info about the differences:
-	# 1. Maybe they have different rights?
-	set oattr [file attributes $older]
-	set nattr [file attributes $newer]
-	if { $oattr != $nattr } {
-		puts " --- Attributes differ:\n\t$oxspace$older: $oattr\n\t$nxspace$newer: $nattr"
-		set any yes
-	}
+		set cmd [list {*}$vim -d [getpath $older] [getpath $newer] {*}$setro {*}$verb]
+		#puts "EXEC: $cmd"
+		exec >@stdout 2>@stderr {*}$cmd
+	} else {
+		puts " --- Diff reported no differences in file contents;"
 
-	#2. Maybe they are text files and have different EOLS?
-	# Extract the 'file' report and present it (it will show the differences)
-	set ofile [exec file -b $older]
-	set nfile [exec file -b $newer]
-	if { $ofile != $nfile } {
-		puts " --- Magic recognition differ:\n\t$oxspace$older: $ofile\n\t$nxspace$newer: $nfile"
-		set any yes
-	}
+		set maxlen [expr {max([string length $older],[string length $newer])}]
 
-	if { !$any } {
-		puts " --- and no reason for difference found."
+		set oxspace [string repeat " " [expr {$maxlen - [string length $older]}]]
+		set nxspace [string repeat " " [expr {$maxlen - [string length $newer]}]]
+
+		set any no
+		# Try to extract extra info about the differences:
+		# 1. Maybe they have different rights?
+		set oattr [file attributes $older]
+		set nattr [file attributes $newer]
+		if { $oattr != $nattr } {
+			puts " --- Attributes differ:\n\t$oxspace$older: $oattr\n\t$nxspace$newer: $nattr"
+			set any yes
+		}
+
+		#2. Maybe they are text files and have different EOLS?
+		# Extract the 'file' report and present it (it will show the differences)
+		set ofile [exec file -b $older]
+		set nfile [exec file -b $newer]
+		if { $ofile != $nfile } {
+			puts " --- Magic recognition differ:\n\t$oxspace$older: $ofile\n\t$nxspace$newer: $nfile"
+			set any yes
+		}
+
+		if { !$any } {
+			puts " --- and no reason for difference found between:"
+			#puts " --- OLD: $older"
+			#puts " --- NEW: $newer"
+		}
 	}
 }

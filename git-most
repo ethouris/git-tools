@@ -347,6 +347,9 @@ proc localize {cwd path} {
 	set updir [lrepeat [llength $furthercomp] ..]
 	set comp [concat $updir $pathcomp]
 
+	if {$comp == ""} {
+		return
+	}
 	return [file join {*}$comp]
 }
 

@@ -81,11 +81,11 @@ if { [info exists ::options(help)] || [info exists ::options(usage)] || [info ex
 proc gethist {} {
 	set cmd [list git log -n $::limit "--pretty=format:%h %p" $::origin]
 	puts stderr "RUNNING: $cmd"
-	return [exec {*}$cmd]
+	return [exec {*}$cmd 2>@stderr]
 }
 
 proc getinfo hash {
-	set inf [exec git log -1 $hash "--format=%cn. %s" --]
+	set inf [exec 2>@stderr git log -1 $hash "--format=%cn. %s" --]
 
 	set pos [string first . $inf]
 	set listmode off
@@ -117,7 +117,7 @@ proc getinfo hash {
 }
 
 proc gethash ref {
-	return [exec git log -1 $ref --format=%h --]
+	return [exec 2>@stderr git log -1 $ref --format=%h --]
 }
 
 proc top {} {
@@ -207,22 +207,56 @@ puts $ofile "digraph \{"
 
 puts $ofile "// COMMIT BALLS: setting info for every commit"
 
+set mark_found no
+
+if {$mark == "none"} {
+	set mark ""
+}
+
+# set mark_fixed ""
+# 
+# foreach m $::mark {
+# 	if {[string is xdigit $m]} {
+# 		if {[string length $m] > 8} {
+# 			lappend mark_fixed [string range $m 0 7]
+# 		} else {
+# 			lappend mark_fixed $m
+# 		}
+# 	}
+# }
+# set ::mark $mark_fixed
+set marks_found ""
+
 foreach {this msg} [array get ::info] {
 	if { [lsearch $::mark $this*] != -1 } {
-		puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=red fillcolor=\"#CCFFCC\" style=\"filled,bold\"];"
+		puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=red fillcolor=\"#99FFFF\" style=\"filled,bold\"];"
+		lappend marks_found $this
 	} else {
 		puts $ofile "\tc$this\[label=\"$this\\n$msg\"\ color=\"#CCFFCC\" style=filled];"
 	}
 }
 
+set marks_notfound ""
+foreach m $::mark {
+	if {$m ni $marks_found} {
+		lappend marks_notfound $m
+	}
+}
+if {$marks_notfound != ""} {
+	puts "WARNING: Marks not found: $marks_notfound"
+}
+
 puts $ofile "// BINDINGS: parent-child bindings between commits"
 
-foreach {this pars} [array get ::parents] {
+set topheads ""
 
+foreach {this pars} [array get ::parents] {
 	foreach p $pars {
 		puts $ofile "\tc$this -> c$p ;"
+		if {$p ni [array names ::parents]} {
+			lappend ::topheads $p
+		}
 	}
-	
 }
 
 puts $ofile "// Branch FUB infos and LOCAL BRANCH (br##) names bound to commits"
@@ -398,8 +432,8 @@ set taglist [exec git tag]
 puts $ofile "// CHECKING TAGS:"
 
 foreach t $taglist {
-	puts $ofile "// --- $t"
 	set h [gethash $t]
+	puts $ofile "// --- $t --- $h"
 	if { [info exists ::hbrlocal($t)] } {
 		set tname $::hbrlocal($t)
 	} else {
@@ -407,11 +441,13 @@ foreach t $taglist {
 		set ::hbrlocal($t) $tname
 	}
 
-	if { [info exists ::parents($h)] } {
+	if { [info exists ::parents($h)] || $h in $::topheads } {
 		# Create tag fub
 		puts $ofile "\t$tname\[label=\"$t\" shape=tab style=filled color=black fillcolor=\"#BBCCFF\"\] ;"
 		# Bind to the commit with given hash
 		puts $ofile "\t$tname -> c$h ;"
+	} else {
+		puts $ofile "// PARENT for CHILD $h not found"
 	}
 }
 
