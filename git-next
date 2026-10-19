@@ -13,14 +13,18 @@ if { $top == "" } {
 	# There can be multiple lines of it, if the commit belonged
 	# to multiple branches at a time.
 
-	set lines [exec git reflog show {--format=%H %gd} --all | grep $this]
+	set er [catch {exec git reflog show {--format=%H %gd} --all | grep $this} lines]
+	if {$er} {
+		puts stderr "No reflog info found for point $point"
+		exit 1
+	}
 
 	if { $lines == "" } {
 		puts stderr "Can't extract current reflog, unknown where the top can be. Please specify toplevel."
 		exit 1
 	}
 
-	puts stderr "REFLOG:\n$lines"
+	puts stderr "REFLOG: $this\n$lines"
 
 	set brdata ""
 	foreach l [split $lines \n] {
@@ -63,11 +67,12 @@ if { $top == "" } {
 			exit 1
 		} else {
 			set top $br
+			puts stderr "SELECTED TOP: $br"
 		}
 	} else {
 		set top [lindex $branches 0]
 	}
-	
+	puts stderr "WILL READ: $point..$top"
 	if { $top == "HEAD" } {
 		puts stderr "This is HEAD reflog, looxlike the reflog was wiped out. Please specify your branch."
 		exit 1

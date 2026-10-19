@@ -23,6 +23,13 @@ if { $argv == "--help" } {
 	exit 1
 }
 
+proc pread {filename} {
+	set fd [open $filename r]
+	set con [read $fd]
+	close $fd
+	return $con
+}
+
 set screwpath 1
 if { "-l" in $argv } {
 	set screwpath 1
@@ -199,13 +206,13 @@ proc distance_to_remote {} {
 set gitdir $top/.git
 
 if { [file isfile $gitdir] } {
-	set gitdirspec [exec cat $gitdir]
+	set gitdirspec [pread $gitdir]
 	set gitdir [file join $top [lindex $gitdirspec 1]]
 }
 
 if { $only == "" } {
 
-lassign [exec cat $gitdir/HEAD] hdx path
+lassign [pread $gitdir/HEAD] hdx path
 if { $hdx == "ref:" } {
 	set parts [file split $path]
 	# Skip refs/heads or whatever...

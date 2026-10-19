@@ -79,17 +79,20 @@ This script is only a forwarder, the whole job will be done by
 
 ###  git-getpin `?submodule-repo?`
 
-This returns the SHA1 code of the commit by which a submodule is pinned into the parent repository. Without arguments
-it returns the pinned commit of the submodule that your current working directory points to. Optional argument is the
-path to the submodule repository. This is useful to check if the current __checkedout__ version of the submodule is
-the same as the __pinned__ version in the parent repository. If they differ, it usually means that you should either
-do `git add` for this submodule repository in the parent repository, or change the HEAD of the submodule to the one
-that is returned by `git getpin`.
+This returns the SHA1 code of the commit by which a submodule is pinned into
+the parent repository. Without arguments it returns the pinned commit of the
+submodule that your current working directory points to. Optional argument is
+the path to the submodule repository. This is useful to check if the current
+__checkedout__ version of the submodule is the same as the __pinned__ version
+in the parent repository. If they differ, it usually means that you should
+either do `git add` for this submodule repository in the parent repository, or
+change the HEAD of the submodule to the one that is returned by `git getpin`.
 
 ###  git-graphviz
 
-This creates a version diagram using __grahpviz's dot__ tool and runs a picture viewer to see it (default: eog). Options
-with their defaults are shown when run.
+This creates a version diagram using __grahpviz's dot__ tool and runs a picture
+viewer to see it (default: eog). Options with their defaults are shown when
+run.
 
 ###  git-man
 
