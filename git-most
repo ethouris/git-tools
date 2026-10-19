@@ -30,6 +30,8 @@ proc pread {filename} {
 	return $con
 }
 
+set os_name [lindex [split $tcl_platform(os) _] 0]
+
 set screwpath 1
 if { "-l" in $argv } {
 	set screwpath 1
@@ -207,7 +209,13 @@ set gitdir $top/.git
 
 if { [file isfile $gitdir] } {
 	set gitdirspec [pread $gitdir]
-	set gitdir [file join $top [lindex $gitdirspec 1]]
+	set gitdir [lindex $gitdirspec 1]
+	if {$os_name == "CYGWIN" && [string index $gitdir 1] == ":"} {
+		# Windows volume-relative; translate
+		set gitdir [exec cygpath -u $gitdirspec]
+	} elseif {[file pathtype $gitdir] == "relative"} {
+		set gitdir [file join $top $gitdir]
+	}
 }
 
 if { $only == "" } {
