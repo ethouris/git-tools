@@ -95,6 +95,32 @@ with their defaults are shown when run.
 
 Alias to `git help`.
 
+###  git-mdiff
+
+NOTE: Requires `fargs` from posix-tools repo:
+`https://github.com/ethouris/posix-tools`.
+
+NOTE: It is also dependent on `gvimdiff-git-wrapper` script that is also in
+this repository. This script must be also added to your `.gitconfig` file under
+the name `gvimdiffwrp`, according to the instruction in this script. It need not
+be the default diff tool, it must be only configured with this name.
+
+Performs the change review in the git repository, like `git difftool`. The
+actual `git difftool` command is instrumentally used inside, but for one file
+at a time only, while the list of changes is obtained first by this script.
+This script also verifies if changes embrace only permission changes and
+passes this information through `GITX_MDIFF_MODE_CHANGES` environment
+variable - that's the only way how this information can be passed to the
+`gvimdiff-git-wrapper` script. The latter script verifies this information
+and acts accordingly (without this it can't properly recognize changes in
+permissions under certain conditions because difftool command doesn't prepare
+this information properly.
+
+Additionally it maintains the order of C/C++ headers - if you have a pair of
+two files with the sane rootname that only differ by `h/c*` extension, the
+header file is always supplied first (this is arranged by the `fargs` command
+with `--c` option).
+
 ###  git-most
 
 This displays the "most useful set of information" for the current repository:
@@ -131,6 +157,12 @@ separate working directories, but using one replica storage. This can save your
 diskspace and time by not uselessly multiplying repository replicas on one disk,
 only to have multiple working directories.
 
+###  git-next
+
+UNSTABLE. UNDER DEVELOPMENT.
+
+Attempting to find the next commit after the place where the branch was drawn off.
+
 ###  git-prefix
 
 Returns the current working directory starting from the current git view working directory.
@@ -152,6 +184,13 @@ git toplevel directory.
 Returns the toplevel directory if the current directory is inside a git view working directory.
 It's actually an alias to `git rev-parse --show-toplevel`.
 
+###  git-topic
+
+Maintains the branch description database. The database is kept in a file named ".topic" or
+"TOPIC" (can be also a symbolic link to some common places, in case you use multiple views
+for the same repository). With no argument, it shows the work description for the current
+branch; with argument it sets it and rewrites the file.
+
 ###  git-track `?-n?` `<branch name>`
 
 Sets tracking for a remote branch. This is useful when you create a new branch and
@@ -169,6 +208,9 @@ in the TRIP format.
 This is a much better than original diff tool using gvim (or vim, if gvim cannot be used). It handles
 much better first of all the differences only in rights, added and deleted files. See the file itself
 for an instruction how to make this script handle your 'git difftool' calls.
+
+It is also recommended to use `git mdiff` (the script is in this repository) instead of `git difftool`
+for the best results when using this script.
 
 ###  patch-distill.tcl
 

@@ -1,0 +1,139 @@
+#!/usr/bin/tclsh
+
+set HERE [file dirname $argv0]
+set specfiles [lassign $argv bpoint]
+
+if {$bpoint == "--help"} {
+	puts stderr "Usage: [file tail $argv0] <branch|point>"
+	exit 1
+}
+# NOTE: $bpoint is allowed to be empty!
+
+# Read the changes and adapt to the current directory
+
+proc relativize {globpath {currentpath ""}} {
+	if {$currentpath == ""} {
+		set currentpath [pwd]
+	}
+
+	set current_list [file split $currentpath]
+	set arg_list [file split $globpath]
+	set output_list ""
+	set output_cumul ""
+
+	set broken false
+	foreach c $current_list f $arg_list {
+		if {!$broken} {
+			if {$c == ""} {
+				set broken true
+			} elseif {$c == $f} {
+				continue
+			}
+			set broken true
+		}
+		if {$c != ""} {
+			lappend output_list ..
+		}
+
+		lappend output_cumul $f
+	}
+	lappend output_list {*}$output_cumul
+
+	return [file join {*}$output_list]
+}
+
+set top [exec git rev-parse --show-toplevel]
+
+proc get-change-list {directory} {
+
+	# Read files
+	if {$directory == ""} {
+		set changes [exec git diff --name-only {*}$::bpoint]
+	} else {
+		set changes [exec git diff --name-only {*}$::bpoint -- $directory]
+	}
+	if {$changes == ""} {
+		return
+	}
+
+	set ochanges ""
+
+	set to [pwd]
+	cd $::top
+	foreach f $changes {
+		set full [file normalize $f]
+		lappend ochanges [relativize $full $to]
+	}
+	cd $to
+	return $ochanges
+}
+
+# Pick up all changed files, if not specified
+if {$specfiles == ""} {
+	set ochanges [get-change-list ""]
+	if {$ochanges == ""} {
+		puts stderr "No changes found. Check with 'git diff --name-only'"
+		exit 1
+	}
+} else {
+	# If we have an explicit list, use this one, just check
+	# if every file exists and it's relative to top; if a
+	# directory was found, get the changelist from a directory.
+
+	set ochanges ""
+
+	set changelist ""
+	foreach f $specfiles {
+		if {![file exists $f]} {
+			puts stderr "ERROR: file '$f' from the list doesn't exist"
+			exit 1
+		}
+
+		if {[file isdirectory $f]} {
+			lappend ochanges {*}[get-change-list $f]
+		} elseif {[file type $f] == "link"} {
+			lappend changelist [file readlink $f]
+		} else {
+			lappend changelist $f
+		}
+	}
+
+	foreach f $changelist {
+		# Check relative path if it refers to updir
+		set rel [relativize [file normalize $f] $top]
+		if {[string range $rel 0 1] == ".."} {
+			puts stderr "ERROR: file '$f' is outside of the repository"
+			exit 1
+		}
+		lappend ochanges $f
+	}
+}
+
+# gvimdiff-git-wrapper should try to extract this variable
+# and find the candidate in this list.
+set modelist ""
+foreach c $ochanges {
+	set sum [string trim [exec git diff --summary {*}$bpoint -- $c]]
+	if {$sum == ""} {
+		continue
+	}
+	if {[lrange $sum 0 1] == {mode change}} {
+		set filename [lassign $sum no no oldmode no newmode]
+		unset no
+		dict set modelist $filename [list $oldmode $newmode]
+	}
+}
+set ::env(GITX_MDIFF_MODE_CHANGES) $modelist
+
+#puts stderr "CHANGES: $ochanges"
+set command [list $HERE/fargs --c / git difftool --tool gvimdiffwrp {*}$bpoint -- / {*}$ochanges]
+#puts stderr "COMMAND: $command"
+exec >@stdout 2>@stderr {*}$command
+# At the end, also display all changes in permissions.
+# --- foreach c $ochanges {
+# --- 	set sum [string trim [exec git diff --summary $bpoint $c]]
+# --- 	if {$sum == ""} {
+# --- 		continue
+# --- 	}
+# --- 	puts stderr $sum
+# --- }
