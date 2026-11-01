@@ -125,8 +125,26 @@ foreach c $ochanges {
 }
 set ::env(GITX_MDIFF_MODE_CHANGES) $modelist
 
+set fargscmd [auto_execok fargs]
+if {$fargscmd == ""} {
+	set fargscmd [file join $HERE fargs]
+}
+
+# On Windows, it won't read #!/usr/bin/tclsh, force running tclsh.
+if {$tcl_platform(platform) == "windows"} {
+	set fargscmd [list tclsh $fargscmd]
+}
+
+set difftool gvimdiffwrp
+if {[info exists ::env(GIT_DIFFTOOL)]} {
+	puts "Using \$GIT_DIFFTOOL=$::env(GIT_DIFFTOOL)"
+	set difftool $::env(GIT_DIFFTOOL)
+} else {
+	puts "Using default difftool"
+}
+
 #puts stderr "CHANGES: $ochanges"
-set command [list $HERE/fargs --c / git difftool --tool gvimdiffwrp {*}$bpoint -- / {*}$ochanges]
+set command [list {*}$fargscmd --c / git difftool --tool $difftool {*}$bpoint -- / {*}$ochanges]
 #puts stderr "COMMAND: $command"
 exec >@stdout 2>@stderr {*}$command
 # At the end, also display all changes in permissions.
