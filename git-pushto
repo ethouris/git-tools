@@ -1,0 +1,44 @@
+#!/usr/bin/tclsh
+
+set remotes [join [exec git remote] " "]
+
+proc bailout args {
+	if {[llength $args] == 1} {
+		set args [lindex $args 0]
+	}
+	puts stderr $args
+	exit 1
+}
+
+if {$remotes == ""} {
+	bailout "No remotes? Is that git repository?"
+}
+
+if {[lassign [lindex $argv 0] remote] != "" || $remote == ""} {
+	bailout "Usage: [file tail $argv0] <remote>"
+}
+
+if {$remote ni $remotes} {
+	bailout "No such remote. Available: $remotes"
+}
+
+set br [split [exec git branch --no-color 2>@stderr] \n]
+
+set thisbr ""
+foreach b $br {
+	if {[string index $b 0] == "*" && [string index $b 2] != "("} {
+		set thisbr [string range $b 2 end]
+		break
+	}
+}
+
+if {$thisbr == ""} {
+	bailout "ERROR: Branch not checked out"
+}
+
+#puts "FOUND: $thisbr to be pushed to $remote"
+
+exec >@stdout 2>@stderr git push --set-upstream $remote $thisbr
+
+
+
