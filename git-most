@@ -102,7 +102,10 @@ foreach a $argv {
 	}
 }
 
-set top [exec git rev-parse --show-toplevel]
+if {[catch {set top [exec git rev-parse --show-toplevel]} out]} {
+	puts "ERROR: Can't get git toplevel directory:\n$out"
+	exit 1
+}
 
 proc gethash_full ref {
 	return [exec git log -1 $ref --format=%H --]
